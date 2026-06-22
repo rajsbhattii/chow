@@ -25,10 +25,53 @@ chow/
 │   ├── alembic/            # DB migrations
 │   ├── requirements.txt
 │   └── .env.example
-├── frontend/               # coming next sprint
+├── frontend/
+│   ├── src/
+│   │   ├── components/     # Layout, SwipeCard
+│   │   └── pages/          # Home, Saved, Explore, Profile, auth/
+│   └── package.json
 ├── ios/                    # v2
 └── PLANNING.md
 ```
+
+## Running the App
+
+### Frontend only (UI with mock data — no database needed)
+
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+### Full stack (frontend + backend + database)
+
+Open two terminal tabs:
+
+**Terminal 1 — Backend**
+```bash
+cd backend
+pip install -r requirements.txt
+cp .env.example .env   # fill in your DB creds
+createdb chow_dev
+alembic revision --autogenerate -m "initial"
+alembic upgrade head
+uvicorn app.main:app --reload
+# → http://localhost:8000
+```
+
+**Terminal 2 — Frontend**
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+> You only need both running once the frontend starts making real API calls (auth, swipes, saves). For now, the UI runs fine on its own with mock data.
+
+---
 
 ## Backend Setup
 
