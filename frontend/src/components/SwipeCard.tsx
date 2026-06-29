@@ -80,12 +80,22 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
           >
             {/* Image section */}
             <div style={{ position: 'relative' }}>
-              <img
-                src={restaurant.imageUrl}
-                alt={restaurant.name}
-                draggable={false}
-                style={{ width: '100%', height: 380, objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-              />
+              {restaurant.imageUrl ? (
+                <img
+                  src={restaurant.imageUrl}
+                  alt={restaurant.name}
+                  draggable={false}
+                  style={{ width: '100%', height: 380, objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: 380, background: 'var(--surface-warm)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 80, pointerEvents: 'none',
+                }}>
+                  {restaurant.imageEmoji}
+                </div>
+              )}
 
               {/* Like stamp */}
               <motion.div style={{ opacity: likeOpacity, position: 'absolute', top: 24, left: 20, rotate: -15 }}>
@@ -114,16 +124,23 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
                   <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>{restaurant.cuisine}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{'$'.repeat(restaurant.priceScale)}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
-                    <Star size={13} color="#facc15" fill="#facc15" />
-                    <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{restaurant.rating}</span>
-                  </div>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{restaurant.priceLabel}</span>
+                  {restaurant.avgRating && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                      <Star size={13} color="#facc15" fill="#facc15" />
+                      <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{restaurant.avgRating.toFixed(1)}</span>
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <MapPin size={11} color="rgba(255,255,255,0.5)" />
-                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{restaurant.distance}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                      {restaurant.distanceKm < 1
+                        ? `${Math.round(restaurant.distanceKm * 1000)} m`
+                        : `${restaurant.distanceKm.toFixed(1)} km`}
+                      {' · '}{restaurant.walkMinutes} min walk
+                    </span>
                   </div>
                   <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>tap for details</span>
                 </div>

@@ -1,15 +1,15 @@
-# Chow / Ciao
+# Chow
 
-Tinder for restaurants. Swipe right to save, left to skip. Built as a web app first, iOS later.
+Tinder for restaurants. Swipe right to save, left to skip.
 
 ## Tech Stack
 
 | Layer | Tech |
 |---|---|
-| Backend | Python, FastAPI, PostgreSQL, Redis |
+| Backend | Python, FastAPI, PostgreSQL, SQLAlchemy (async) |
 | Frontend | React, TypeScript, Tailwind CSS, Framer Motion |
-| Auth | JWT + Google OAuth |
-| Data | Google Places API (CSV seed for prototype) |
+| Auth | JWT (access + refresh tokens) + Google OAuth (coming) |
+| Data | Google Places API → seeded into PostgreSQL |
 | iOS | Swift (v2) |
 
 ## Project Structure
@@ -18,67 +18,51 @@ Tinder for restaurants. Swipe right to save, left to skip. Built as a web app fi
 chow/
 ├── backend/
 │   ├── app/
+│   │   ├── main.py
 │   │   ├── config.py
 │   │   ├── database.py
-│   │   ├── main.py
-│   │   └── models/         # User, Restaurant, Swipe, Save, Visit
+│   │   ├── auth.py
+│   │   ├── models/         # User, Restaurant, Swipe, Save, Visit
+│   │   └── routers/        # auth, restaurants, swipes
 │   ├── alembic/            # DB migrations
-│   ├── requirements.txt
-│   └── .env.example
+│   ├── scripts/
+│   │   └── fetch_restaurants.py   # Google Places → DB seed
+│   └── requirements.txt
 ├── frontend/
-│   ├── src/
-│   │   ├── components/     # Layout, SwipeCard
-│   │   └── pages/          # Home, Saved, Explore, Profile, auth/
-│   └── package.json
-├── ios/                    # v2
-└── PLANNING.md
+│   └── src/
+│       ├── components/     # Layout, SwipeCard, RestaurantModal, ProtectedRoute
+│       ├── context/        # AuthContext, ThemeContext
+│       ├── lib/            # axios instance (api.ts)
+│       ├── pages/
+│       │   ├── auth/       # Welcome, Login, Signup, Onboarding
+│       │   ├── Home.tsx
+│       │   ├── Saved.tsx
+│       │   ├── Explore.tsx
+│       │   └── Profile.tsx
+│       └── data/
+│           └── restaurants.ts   # API helpers + types
+├── dev.sh                  # runs frontend + backend together
+├── PLANNING.md
+└── TASKS.md
 ```
-
-## Running the App
-
-### Frontend only (UI with mock data — no database needed)
-
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:5173
-```
-
-### Full stack (frontend + backend + database)
-
-Open two terminal tabs:
-
-**Terminal 1 — Backend**
-```bash
-cd backend
-pip install -r requirements.txt
-cp .env.example .env   # fill in your DB creds
-createdb chow_dev
-alembic revision --autogenerate -m "initial"
-alembic upgrade head
-uvicorn app.main:app --reload
-# → http://localhost:8000
-```
-
-**Terminal 2 — Frontend**
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:5173
-```
-
-> You only need both running once the frontend starts making real API calls (auth, swipes, saves). For now, the UI runs fine on its own with mock data.
 
 ---
 
-## Backend Setup
+## Getting Started
 
-### 1. Install dependencies
+### Prerequisites
+
+- Python 3.11+
+- Node 18+
+- PostgreSQL running locally
+- Google Cloud project with **Places API** enabled
+
+### 1. Clone and set up the backend
 
 ```bash
 cd backend
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -88,166 +72,131 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+Fill in `.env`:
+
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/chow_dev
 SECRET_KEY=your-secret-key-here
+GOOGLE_PLACES_API_KEY=your-google-places-key
 ENVIRONMENT=development
 ```
 
-### 3. Create the database and run migrations
+### 3. Create the DB and run migrations
 
 ```bash
 createdb chow_dev
-alembic revision --autogenerate -m "initial"
 alembic upgrade head
 ```
 
-### 4. Start the dev server
+### 4. Seed restaurant data
+
+This fetches ~1000 Toronto restaurants from the Google Places API and stores them in your DB. **You only need to run this once** — all user requests (swipes, filters, etc.) read from the DB, not from Google directly.
 
 ```bash
-uvicorn app.main:app --reload
+python scripts/fetch_restaurants.py
 ```
 
-API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+Output:
+```
+Fetching japanese_restaurant near Downtown...
+Fetching italian_restaurant near Downtown...
+...
+Done: 847 inserted, 0 updated, 312 skipped
+```
+
+**Re-run when:** you want to refresh stale ratings/hours, or expand to a new city. The script upserts on `google_place_id` so it's safe to re-run at any time.
+
+**Cost:** ~$25 for 1000 restaurants (one-time). Google gives $200/month free credit, so it's effectively free.
+
+### 5. Set up the frontend
+
+```bash
+cd frontend
+npm install
+```
+
+### 6. Run everything
+
+```bash
+# From the repo root:
+./dev.sh
+```
+
+This starts both servers and kills both on Ctrl+C.
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:8000 |
+| API docs | http://localhost:8000/docs |
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | — | Create account, returns tokens |
+| POST | `/api/auth/login` | — | Login, returns tokens + `is_new_user` |
+| POST | `/api/auth/refresh` | — | Exchange refresh token for new access token |
+| POST | `/api/auth/onboarding` | ✓ | Save preferences, set status → active |
+| GET | `/api/auth/me` | ✓ | Current user profile |
+| GET | `/api/restaurants` | ✓ | Filtered restaurant list for swipe deck |
+| POST | `/api/swipes` | ✓ | Record a swipe (right swipe auto-saves) |
+
+### `GET /api/restaurants` query params
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `lat` | float | required | User latitude |
+| `lng` | float | required | User longitude |
+| `max_distance_km` | int | 25 | Filter by radius |
+| `budget` | string[] | — | `$` `$$` `$$$` `$$$$` |
+| `cuisine` | string[] | — | e.g. `Japanese`, `Italian` |
+| `vibe` | string | — | `date_night` `quick_bite` `brunch` `adventurous` `comfort` `group` |
+| `exclude_swiped` | bool | true | Hide already-seen restaurants |
+| `limit` | int | 20 | Page size |
+| `offset` | int | 0 | Pagination offset |
 
 ---
 
 ## Database Models
 
-| Model | Fields |
+| Model | Key Fields |
 |---|---|
-| User | id, name, email, password_hash, location, adventure_level, budget_range, max_distance, dietary_needs, created_at |
-| Restaurant | id, name, location, lat/lng, cuisine, price_scale, busy_hours, website, avg_rating, top_reviews, google_place_id, image_url |
+| User | id, name, email, password_hash, status (onboarding/active), cuisine_preferences, adventure_level, budget_range, max_distance, transport_modes, dietary_needs |
+| Restaurant | id, name, cuisine, price_scale, lat/lng, avg_rating, review_count, tags, neighbourhood, image_url, image_emoji, google_place_id |
 | Swipe | id, user_id, restaurant_id, direction (left/right), swiped_at |
 | Save | id, user_id, restaurant_id, saved_at, status (want_to_go/been_here) |
-| Visit | id, user_id, restaurant_id, visited_at, star_rating (1–5), would_return (definitely/maybe/no) |
+| Visit | id, user_id, restaurant_id, visited_at, star_rating (1–5), would_return |
 
 ---
 
-## API Endpoints (planned)
+## Auth Flow
 
 ```
-POST /auth/signup
-POST /auth/login
-POST /auth/refresh
-
-GET  /restaurants        # filtered list for swipe deck
-POST /swipes
-GET  /saves
-POST /saves
-POST /visits
-GET  /profile/stats
+/  (Welcome)
+  → /signup  → /onboarding  → /home
+  → /login   → /home  (or /onboarding if status = onboarding)
 ```
 
----
-
-## User Flows
-
-### New User
-1. Sign up
-2. Onboarding — 4 questions:
-   - Cuisine preferences (multi-select)
-   - Budget + distance (sliders)
-   - Adventure level: Comfort zone / Open-minded / Adventurous / Full send
-   - Dietary needs (multi-select)
-3. Vibe selector
-4. Swipe deck
-
-### Returning User
-1. Auto-login
-2. Personalized home — time-aware greeting + nudge
-3. Vibe selector (remembers last session defaults)
-4. Swipe deck
+- JWT access token (7 days) + refresh token (30 days)
+- Token stored in `localStorage`, auto-attached to all API requests
+- All routes except `/`, `/login`, `/signup` require auth
 
 ---
 
-## Screens
+## Migrations
 
-### Home
-- Time-aware greeting (morning / lunch / evening / late night)
-- Nudge bar (e.g. "You saved Momofuku last week — did you go?")
-- Vibe selector grid: Date night / Quick bite / Brunch / Adventurous / Comfort food / Group dinner
-- Filter chips: budget, distance, cuisine
-- Swipe deck with like / pass / undo
+```bash
+cd backend
 
-### Saved
-- "Swipe my saves" + "Surprise me" buttons
-- Filter chips: Want to go / Been here / Nearest / Cuisine
-- List of saved restaurants → tap to open detail card
+# Create a new migration after changing a model
+alembic revision --autogenerate -m "description"
 
-### Restaurant Detail Card
-- Hero image, name, cuisine, price, distance, hours, rating, busy hours, top review
-- If **want_to_go**: "Yes, I went!" + "Not yet" + Get directions
-- If **been_here**: shows star rating + would_return answer, "Go again" + "Edit review" + Get directions
+# Apply all pending migrations
+alembic upgrade head
 
-### Post-Visit Rating Flow
-1. Star rating (1–5)
-2. Would you go back? (Definitely / Maybe / Probably not)
-3. Submit → moves to "Been here"
-4. Celebration screen + badge unlock if earned
-
-### Explore
-- Search bar
-- Map view (placeholder)
-- Browse by vibe: Trending / New openings / Hidden gems / Late night / Vegan friendly
-- Browse by cuisine
-- Near you right now
-
-### Profile
-| Tab | Content |
-|---|---|
-| Stats | Wrapped card + monthly stat grid |
-| Badges | Earned vs locked grid |
-| Taste DNA | Cuisine bars, adventure score, peak dining heatmap |
-| Settings | Preferences, dietary, notifications, sign out |
-
----
-
-## Badges
-
-| Badge | Unlock Condition |
-|---|---|
-| Globe Trotter | Tried 10 cuisines |
-| Gambler | Used "Take a Risk" 10 times |
-| Trendsetter | Visited a spot before it hit 4.5 stars |
-| Regular | Visited the same spot 5+ times |
-| First In Line | Visited a new opening within a week |
-| Off the Map | Visited a restaurant with under 50 reviews |
-| Full Send | Visited a restaurant you'd normally skip |
-| Plus One | Swiped together with a friend (v2) |
-| Party Starter | Organised a group dinner (v2) |
-
----
-
-## Adventure Score
-
-Tracks whether actual swipe behaviour matches the stated adventure level from onboarding. Shown in the Taste DNA tab. If a gap is detected, the app nudges: *"You said Full Send but you've been playing it safe — time to take a risk?"*
-
----
-
-## Visit Confirmation
-
-| Version | Method |
-|---|---|
-| v1 | Self-report nudge 3 days after saving |
-| v2 | GPS detection within 50m radius |
-| v3 | Booking integration (Resy / OpenTable) |
-
----
-
-## Build Tasks
-
-### Current Sprint — Backend Foundation
-- [x] Initialize FastAPI project
-- [x] PostgreSQL connection with SQLAlchemy async
-- [x] All database models (User, Restaurant, Swipe, Save, Visit)
-- [ ] JWT auth endpoints (signup, login, refresh)
-- [ ] Restaurant seed script from CSV
-- [ ] Core API endpoints (restaurants, swipes, saves, visits, profile/stats)
-
-### Next Sprint — Frontend Shell
-- [ ] React + TypeScript + Tailwind setup
-- [ ] React Router with 4 routes
-- [ ] Auth pages (login, signup, onboarding flow)
-- [ ] Home screen with vibe selector
-- [ ] Swipe card component with Framer Motion
+# Roll back one migration
+alembic downgrade -1
+```

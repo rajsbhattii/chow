@@ -7,6 +7,7 @@ from app.database import engine
 from app.models import Base
 from app.routers.auth import router as auth_router
 from app.routers.restaurants import router as restaurants_router
+from app.routers.swipes import router as swipes_router
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(restaurants_router)
+app.include_router(swipes_router)
 
 
 @app.get("/health")

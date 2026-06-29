@@ -14,3 +14,5 @@ frontend/.env
 .DS_Store
 
 dev.sh
+PLANNING.md
+TASKS.md
