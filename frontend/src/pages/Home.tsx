@@ -1,5 +1,8 @@
 import { ChevronRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import SwipeCard from '../components/SwipeCard'
+import { MOCK_RESTAURANTS, fetchNearbyRestaurants } from '../data/restaurants'
+import type { RestaurantDetail } from '../data/restaurants'
 
 const VIBES = [
   { label: 'Date night', emoji: '🕯️' },
@@ -12,15 +15,6 @@ const VIBES = [
 
 const FILTERS = ['Any budget', 'Under 5 km', 'Any cuisine', 'Open now']
 
-const MOCK_RESTAURANT = {
-  name: 'Momofuku Noodle Bar',
-  cuisine: 'Japanese',
-  priceScale: 2,
-  distance: '0.8 km',
-  rating: 4.7,
-  imageUrl: 'https://picsum.photos/seed/ramen/800/600',
-}
-
 function getGreeting() {
   const h = new Date().getHours()
   if (h < 11) return { text: 'Good morning', emoji: '🌅' }
@@ -31,6 +25,21 @@ function getGreeting() {
 
 export default function Home() {
   const { text, emoji } = getGreeting()
+  const [restaurants, setRestaurants] = useState<RestaurantDetail[]>([])
+  const [deckIndex, setDeckIndex] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Greater Toronto Area — downtown Toronto
+    fetchNearbyRestaurants(43.6532, -79.3832)
+      .then(data => { setRestaurants(data); setLoading(false) })
+      .catch(() => {
+        setRestaurants(MOCK_RESTAURANTS)
+        setLoading(false)
+      })
+  }, [])
+
+  const current = restaurants[deckIndex]
 
   return (
     <div className="page" style={{ display: 'flex', gap: 48, alignItems: 'flex-start' }}>
@@ -40,13 +49,13 @@ export default function Home() {
 
         {/* Greeting */}
         <div>
-          <p style={{ fontSize: 13, color: '#a1a1aa', fontWeight: 500, marginBottom: 6 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500, marginBottom: 6 }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', color: '#09090b', lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', color: 'var(--text-1)', lineHeight: 1.1 }}>
             {text} {emoji}
           </h1>
-          <p style={{ fontSize: 15, color: '#71717a', marginTop: 8 }}>
+          <p style={{ fontSize: 15, color: 'var(--text-3)', marginTop: 8 }}>
             Where do you want to eat tonight?
           </p>
         </div>
@@ -56,23 +65,23 @@ export default function Home() {
           display: 'flex', alignItems: 'center', gap: 14,
           padding: '16px 20px', textAlign: 'left', width: '100%',
           cursor: 'pointer', transition: 'box-shadow 0.15s',
-          background: '#fff7ed', borderColor: '#fed7aa',
+          background: 'var(--surface-warm)', borderColor: 'var(--border-warm)',
         }}>
           <span style={{ fontSize: 22 }}>🔔</span>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#09090b' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>
               Did you make it to Momofuku?
             </p>
-            <p style={{ fontSize: 13, color: '#a1a1aa', marginTop: 2 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>
               You saved it last week — tap to log your visit
             </p>
           </div>
-          <ChevronRight size={16} color="#d4d4d8" />
+          <ChevronRight size={16} color="var(--border)" />
         </button>
 
         {/* Vibe selector */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#09090b', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             What's the move?
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -82,20 +91,19 @@ export default function Home() {
                 className="card"
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 8, padding: '20px 12px', cursor: 'pointer',
-                  transition: 'all 0.15s',
+                  gap: 8, padding: '20px 12px', cursor: 'pointer', transition: 'all 0.15s',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = '#f97316'
-                  ;(e.currentTarget as HTMLElement).style.background = '#fff7ed'
+                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--orange)'
+                  ;(e.currentTarget as HTMLElement).style.background = 'var(--surface-warm)'
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = '#e4e4e7'
-                  ;(e.currentTarget as HTMLElement).style.background = '#fff'
+                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+                  ;(e.currentTarget as HTMLElement).style.background = 'var(--surface)'
                 }}
               >
                 <span style={{ fontSize: 26 }}>{emoji}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#3f3f46' }}>{label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-5)' }}>{label}</span>
               </button>
             ))}
           </div>
@@ -103,7 +111,7 @@ export default function Home() {
 
         {/* Filters */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#09090b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Filters
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -113,9 +121,9 @@ export default function Home() {
                 style={{
                   padding: '6px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
                   border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
-                  background: i === 0 ? '#09090b' : '#fff',
-                  borderColor: i === 0 ? '#09090b' : '#e4e4e7',
-                  color: i === 0 ? '#fff' : '#52525b',
+                  background: i === 0 ? 'var(--pill-active-bg)' : 'var(--surface)',
+                  borderColor: i === 0 ? 'var(--pill-active-bg)' : 'var(--border)',
+                  color: i === 0 ? 'var(--pill-active-color)' : 'var(--text-2)',
                 }}
               >
                 {f}
@@ -126,15 +134,53 @@ export default function Home() {
 
       </div>
 
-      {/* ── Right column — swipe card ── */}
+      {/* ── Right column — deck ── */}
       <div style={{ width: 380, flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#09090b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Up next
           </p>
-          <p style={{ fontSize: 13, color: '#a1a1aa' }}>Drag or use buttons</p>
+          <p style={{ fontSize: 13, color: 'var(--text-4)' }}>
+            {loading ? 'Loading...' : restaurants.length > 0 ? `${deckIndex + 1} of ${restaurants.length}` : ''}
+          </p>
         </div>
-        <SwipeCard restaurant={MOCK_RESTAURANT} />
+
+        {loading ? (
+          <div style={{
+            height: 466, borderRadius: 20,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
+          }}>
+            <span style={{ fontSize: 32 }}>🍜</span>
+            <p style={{ fontSize: 14, color: 'var(--text-4)', fontWeight: 500 }}>Finding restaurants nearby…</p>
+          </div>
+        ) : !current ? (
+          <div style={{
+            height: 466, borderRadius: 20,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
+          }}>
+            <span style={{ fontSize: 32 }}>✅</span>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>You've seen everything!</p>
+            <p style={{ fontSize: 13, color: 'var(--text-4)' }}>Check your saved restaurants.</p>
+            <button
+              onClick={() => setDeckIndex(0)}
+              style={{
+                marginTop: 8, padding: '9px 20px', borderRadius: 10,
+                background: 'var(--orange)', color: '#fff', border: 'none',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Start over
+            </button>
+          </div>
+        ) : (
+          <SwipeCard
+            key={current.id}
+            restaurant={current}
+            onSwipe={() => setDeckIndex(i => i + 1)}
+          />
+        )}
       </div>
 
     </div>

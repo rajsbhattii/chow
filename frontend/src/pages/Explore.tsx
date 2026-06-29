@@ -17,7 +17,7 @@ const CUISINES = [
 export default function Explore() {
   return (
     <div className="page">
-      <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', color: '#09090b', marginBottom: 24 }}>
+      <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--text-1)', marginBottom: 24 }}>
         Explore
       </h1>
 
@@ -26,12 +26,12 @@ export default function Explore() {
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 18px', marginBottom: 32, maxWidth: 560,
       }}>
-        <Search size={16} color="#a1a1aa" />
+        <Search size={16} color="var(--text-4)" />
         <input
           placeholder="Search restaurants, cuisines, neighbourhoods..."
           style={{
             background: 'none', border: 'none', outline: 'none',
-            fontSize: 14, color: '#09090b', flex: 1,
+            fontSize: 14, color: 'var(--text-1)', flex: 1,
           }}
         />
       </div>
@@ -44,19 +44,19 @@ export default function Explore() {
             alignItems: 'center', justifyContent: 'center', gap: 10,
           }}>
             <span style={{ fontSize: 40 }}>🗺️</span>
-            <p style={{ fontSize: 14, color: '#a1a1aa', fontWeight: 500 }}>Map view coming soon</p>
+            <p style={{ fontSize: 14, color: 'var(--text-4)', fontWeight: 500 }}>Map view coming soon</p>
           </div>
 
           {/* Cuisines */}
           <div>
-            <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#09090b', marginBottom: 14 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-1)', marginBottom: 14 }}>
               Browse by cuisine
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {CUISINES.map(c => (
                 <button key={c} style={{
                   padding: '7px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
-                  border: '1px solid #e4e4e7', background: '#fff', color: '#52525b', cursor: 'pointer',
+                  border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer',
                 }}>
                   {c}
                 </button>
@@ -67,7 +67,7 @@ export default function Explore() {
 
         {/* Vibes sidebar */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#09090b', marginBottom: 14 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-1)', marginBottom: 14 }}>
             Browse by vibe
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -75,7 +75,7 @@ export default function Explore() {
               <button key={label} className="card" style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '14px 16px', cursor: 'pointer', textAlign: 'left',
-                fontSize: 14, fontWeight: 500, color: '#3f3f46',
+                fontSize: 14, fontWeight: 500, color: 'var(--text-5)',
               }}>
                 <span style={{ fontSize: 20 }}>{emoji}</span> {label}
               </button>

@@ -21,17 +21,17 @@ export default function Profile() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 32 }}>
         <div style={{
           width: 60, height: 60, borderRadius: '50%',
-          background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, border: '1px solid #fed7aa',
+          background: 'var(--surface-warm)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 28, border: '1px solid var(--border-warm)',
         }}>🧑</div>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em' }}>Your Name</h1>
-          <p style={{ fontSize: 13, color: '#a1a1aa', marginTop: 2 }}>you@example.com</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>Your Name</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>you@example.com</p>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e4e4e7', marginBottom: 32 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 32 }}>
         {TABS.map(t => (
           <button
             key={t}
@@ -39,8 +39,8 @@ export default function Profile() {
             style={{
               padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
               border: 'none', background: 'none',
-              borderBottom: `2px solid ${tab === t ? '#f97316' : 'transparent'}`,
-              color: tab === t ? '#f97316' : '#71717a',
+              borderBottom: `2px solid ${tab === t ? 'var(--orange)' : 'transparent'}`,
+              color: tab === t ? 'var(--orange)' : 'var(--text-3)',
               transition: 'all 0.15s',
               marginBottom: -1,
             }}
@@ -53,14 +53,14 @@ export default function Profile() {
       {tab === 'Stats' && (
         <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
           <div style={{
-            background: '#09090b', borderRadius: 16, padding: '32px 28px',
+            background: 'var(--surface-inverse)', borderRadius: 16, padding: '32px 28px',
             color: '#fff', width: 220, flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           }}>
-            <p style={{ fontSize: 13, color: '#71717a' }}>Your 2025 so far</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Your 2025 so far</p>
             <div>
-              <p style={{ fontSize: 56, fontWeight: 900, lineHeight: 1 }}>0</p>
-              <p style={{ fontSize: 13, color: '#a1a1aa', marginTop: 6 }}>restaurants visited</p>
+              <p style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, color: '#fff' }}>0</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>restaurants visited</p>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, flex: 1 }}>
@@ -71,8 +71,8 @@ export default function Profile() {
               { label: 'Adventure score', value: '—' },
             ].map(({ label, value }) => (
               <div key={label} className="card" style={{ padding: '24px 22px' }}>
-                <p style={{ fontSize: 36, fontWeight: 900, color: '#09090b', letterSpacing: '-0.03em' }}>{value}</p>
-                <p style={{ fontSize: 13, color: '#a1a1aa', marginTop: 4 }}>{label}</p>
+                <p style={{ fontSize: 36, fontWeight: 900, color: 'var(--text-1)', letterSpacing: '-0.03em' }}>{value}</p>
+                <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 4 }}>{label}</p>
               </div>
             ))}
           </div>
@@ -87,8 +87,8 @@ export default function Profile() {
               padding: '28px 16px', textAlign: 'center', opacity: 0.35,
             }}>
               <span style={{ fontSize: 36 }}>{emoji}</span>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>{label}</p>
-              <p style={{ fontSize: 12, color: '#a1a1aa', lineHeight: 1.4 }}>{desc}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-4)', lineHeight: 1.4 }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -100,8 +100,8 @@ export default function Profile() {
           padding: '80px 40px', textAlign: 'center', gap: 14, borderStyle: 'dashed',
         }}>
           <span style={{ fontSize: 52 }}>🧬</span>
-          <p style={{ fontSize: 16, fontWeight: 700, color: '#09090b' }}>Your Taste DNA</p>
-          <p style={{ fontSize: 14, color: '#a1a1aa' }}>Swipe more restaurants to unlock your cuisine profile.</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>Your Taste DNA</p>
+          <p style={{ fontSize: 14, color: 'var(--text-4)' }}>Swipe more restaurants to unlock your cuisine profile.</p>
         </div>
       )}
 
@@ -118,10 +118,10 @@ export default function Profile() {
               cursor: 'pointer', textAlign: 'left', width: '100%',
             }}>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#09090b' }}>{label}</p>
-                <p style={{ fontSize: 13, color: '#a1a1aa', marginTop: 2 }}>{desc}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{label}</p>
+                <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>{desc}</p>
               </div>
-              <span style={{ color: '#d4d4d8', fontSize: 18 }}>›</span>
+              <span style={{ color: 'var(--border)', fontSize: 18 }}>›</span>
             </button>
           ))}
           <button style={{
