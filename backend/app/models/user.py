@@ -17,14 +17,18 @@ class User(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    google_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # account lifecycle: onboarding | active
+    status: Mapped[str] = mapped_column(String(20), default="onboarding", server_default="onboarding")
+
     # onboarding preferences
+    cuisine_preferences: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     adventure_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    # comfort_zone | open_minded | adventurous | full_send
     budget_range: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    # $ | $$ | $$$ | $$$$
     max_distance: Mapped[int | None] = mapped_column(nullable=True)  # km
+    transport_modes: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     dietary_needs: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
 
     swipes: Mapped[list["Swipe"]] = relationship(back_populates="user")

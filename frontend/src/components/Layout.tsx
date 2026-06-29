@@ -1,9 +1,10 @@
 import { Moon, Sun } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 const navItems = [
-  { to: '/', label: 'Home' },
+  { to: '/home', label: 'Home' },
   { to: '/saved', label: 'Saved' },
   { to: '/explore', label: 'Explore' },
   { to: '/profile', label: 'Profile' },
@@ -11,6 +12,13 @@ const navItems = [
 
 export default function Layout() {
   const { theme, toggle } = useTheme()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -22,7 +30,7 @@ export default function Layout() {
         transition: 'background 0.2s, border-color 0.2s',
       }}>
         <div className="nav-inner" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <NavLink to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+          <NavLink to="/home" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
             <span style={{ fontSize: 20 }}>🍜</span>
             <span style={{ fontWeight: 900, fontSize: 18, color: 'var(--text-1)', letterSpacing: '-0.03em' }}>Chow</span>
           </NavLink>
@@ -32,7 +40,6 @@ export default function Layout() {
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
                 style={({ isActive }) => ({
                   padding: '6px 16px',
                   borderRadius: 99,
@@ -62,20 +69,21 @@ export default function Layout() {
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <NavLink
-              to="/login"
+            <button
+              onClick={handleLogout}
               style={{
                 padding: '8px 18px',
                 borderRadius: 99,
-                background: 'var(--orange)',
-                color: '#fff',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-3)',
                 fontSize: 14,
                 fontWeight: 600,
-                textDecoration: 'none',
+                cursor: 'pointer',
               }}
             >
-              Sign in
-            </NavLink>
+              Sign out
+            </button>
           </div>
         </div>
       </header>
