@@ -47,8 +47,9 @@ async def _check_badges(user_id: uuid.UUID, restaurant: Restaurant, db: AsyncSes
         ).order_by(Visit.visited_at.asc()).limit(1)
     )
     first_visit = visit_result.scalar_one_or_none()
-    if first_visit and restaurant.created_at:
-        days_after = (first_visit.visited_at - restaurant.created_at).days
+    restaurant_created_at = getattr(restaurant, 'created_at', None)
+    if first_visit and restaurant_created_at:
+        days_after = (first_visit.visited_at - restaurant_created_at).days
         if days_after <= 7:
             badges.append("first_in_line")
 
