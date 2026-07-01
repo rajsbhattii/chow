@@ -16,6 +16,8 @@ interface Props {
   lat: number
   lng: number
   maxDistanceKm: number
+  budget?: string[]
+  cuisine?: string[]
   onExit: () => void
   onNavigateSaved: () => void
 }
@@ -23,6 +25,7 @@ interface Props {
 export default function TournamentDeck({
   vibe, vibeLabel, vibeEmoji,
   lat, lng, maxDistanceKm,
+  budget, cuisine,
   onExit, onNavigateSaved,
 }: Props) {
   const [phase, setPhase]         = useState<Phase>('loading')
@@ -42,6 +45,8 @@ export default function TournamentDeck({
       const res = await fetchRestaurants(lat, lng, {
         maxDistanceKm,
         vibe: vibe || undefined,
+        budget: budget?.length ? budget : undefined,
+        cuisine: cuisine?.length ? cuisine : undefined,
         excludeSwiped: true,
         shuffle: true,
         limit: ROUND_SIZES[roundIndex],

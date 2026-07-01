@@ -1,4 +1,4 @@
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TournamentDeck from '../components/TournamentDeck'
@@ -7,7 +7,6 @@ import { bookmarkRestaurant, fetchRestaurants, recordSwipe } from '../data/resta
 import type { RestaurantDetail } from '../data/restaurants'
 import { useAuth } from '../context/AuthContext'
 
-// Downtown Toronto fallback if user denies location
 const DEFAULT_LAT = 43.6532
 const DEFAULT_LNG = -79.3832
 
@@ -20,7 +19,18 @@ const VIBES = [
   { label: 'Group dinner', emoji: '🥳', value: 'group' },
 ]
 
-const FILTERS = ['Any budget', 'Under 5 km', 'Any cuisine', 'Open now']
+const BUDGET_OPTIONS = ['$', '$$', '$$$', '$$$$']
+const DISTANCE_OPTIONS = [
+  { label: 'Nearby (< 1 km)', value: 1 },
+  { label: 'Under 5 km', value: 5 },
+  { label: 'Under 10 km', value: 10 },
+  { label: 'Any distance', value: 25 },
+]
+const CUISINE_OPTIONS = [
+  'American', 'Brunch', 'Chinese', 'Ethiopian', 'French',
+  'Indian', 'Italian', 'Japanese', 'Korean', 'Mediterranean',
+  'Mexican', 'Middle Eastern', 'Seafood', 'Thai', 'Vietnamese',
+]
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -42,14 +52,22 @@ export default function Home() {
   const [toast, setToast] = useState('')
   const [activeVibe, setActiveVibe] = useState<{ value: string; label: string; emoji: string } | null>(null)
 
+  const [filterBudget, setFilterBudget] = useState<string[]>([])
+  const [filterDistance, setFilterDistance] = useState(25)
+  const [filterCuisine, setFilterCuisine] = useState<string[]>([])
+  const [openFilter, setOpenFilter] = useState<'budget' | 'distance' | 'cuisine' | null>(null)
+
   const coords = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
+  const locationReady = useRef(false)
 
   async function load() {
     setLoading(true)
     setError('')
     try {
       const res = await fetchRestaurants(coords.current.lat, coords.current.lng, {
-        maxDistanceKm: user?.max_distance ?? 25,
+        maxDistanceKm: filterDistance,
+        budget: filterBudget.length > 0 ? filterBudget : undefined,
+        cuisine: filterCuisine.length > 0 ? filterCuisine : undefined,
         excludeSwiped: true,
         limit: 50,
       })
@@ -66,22 +84,59 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       pos => {
         coords.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        locationReady.current = true
         load()
       },
-      () => load(),
+      () => {
+        locationReady.current = true
+        load()
+      },
       { timeout: 5000 }
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Reload freeplay deck when filters change (skip until location resolves)
+  useEffect(() => {
+    if (!locationReady.current) return
+    load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterBudget, filterDistance, filterCuisine])
+
+  function toggleFilter(f: 'budget' | 'distance' | 'cuisine') {
+    setOpenFilter(prev => prev === f ? null : f)
+  }
+  function toggleBudget(b: string) {
+    setFilterBudget(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])
+  }
+  function toggleCuisine(c: string) {
+    setFilterCuisine(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
+  }
+  function clearFilters() {
+    setFilterBudget([])
+    setFilterDistance(25)
+    setFilterCuisine([])
+    setOpenFilter(null)
+  }
+
+  const budgetActive = filterBudget.length > 0
+  const distanceActive = filterDistance < 25
+  const cuisineActive = filterCuisine.length > 0
+  const anyFilterActive = budgetActive || distanceActive || cuisineActive
+
+  const budgetLabel = filterBudget.length === 0 ? 'Budget' : filterBudget.join(' · ')
+  const distanceLabel = filterDistance === 25 ? 'Any distance' : `< ${filterDistance} km`
+  const cuisineLabel = filterCuisine.length === 0
+    ? 'Cuisine'
+    : filterCuisine.length === 1
+      ? filterCuisine[0]
+      : `${filterCuisine.length} cuisines`
+
   async function handleSwipe(direction: 'left' | 'right' | 'maybe' | 'bookmark') {
     const restaurant = restaurants[deckIndex]
     if (!restaurant) return
-
-    if (direction === 'maybe') return  // stays in deck
-
+    if (direction === 'maybe') return
     setDeckIndex(i => i + 1)
-
     try {
       if (direction === 'bookmark') {
         await bookmarkRestaurant(restaurant.id)
@@ -96,6 +151,11 @@ export default function Home() {
   }
 
   const current = restaurants[deckIndex]
+
+  // Restart tournament when filters change while one is active
+  const tournamentKey = activeVibe
+    ? `${activeVibe.value}|${filterBudget.join(',')}|${filterDistance}|${filterCuisine.join(',')}`
+    : null
 
   return (
     <div className="page" style={{ display: 'flex', gap: 48, alignItems: 'flex-start' }}>
@@ -127,12 +187,129 @@ export default function Home() {
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>
               Did you make it to your last save?
             </p>
-            <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>
-              Tap to log your visit
-            </p>
+            <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>Tap to log your visit</p>
           </div>
           <ChevronRight size={16} color="var(--border)" />
         </button>
+
+        {/* Filters */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Filters
+            </p>
+            {anyFilterActive && (
+              <button
+                onClick={clearFilters}
+                style={{ fontSize: 12, color: 'var(--orange)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Filter chips */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([
+              { key: 'budget' as const, label: budgetLabel, active: budgetActive },
+              { key: 'distance' as const, label: distanceLabel, active: distanceActive },
+              { key: 'cuisine' as const, label: cuisineLabel, active: cuisineActive },
+            ]).map(({ key, label, active }) => (
+              <button
+                key={key}
+                onClick={() => toggleFilter(key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 14px', borderRadius: 99, fontSize: 13, fontWeight: 500,
+                  border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+                  background: active ? 'var(--surface-warm)' : 'var(--surface)',
+                  borderColor: active || openFilter === key ? 'var(--orange)' : 'var(--border)',
+                  color: active ? 'var(--orange)' : 'var(--text-2)',
+                }}
+              >
+                {label}
+                <ChevronDown
+                  size={12}
+                  strokeWidth={2.5}
+                  style={{
+                    opacity: 0.6,
+                    transform: openFilter === key ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.15s',
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+
+          {/* Expanded filter panel */}
+          {openFilter && (
+            <div style={{
+              marginTop: 10, padding: '14px 16px',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 14,
+            }}>
+              {openFilter === 'budget' && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {BUDGET_OPTIONS.map(b => (
+                    <button
+                      key={b}
+                      onClick={() => toggleBudget(b)}
+                      style={{
+                        flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                        background: filterBudget.includes(b) ? 'var(--orange)' : 'var(--bg)',
+                        color: filterBudget.includes(b) ? '#fff' : 'var(--text-2)',
+                        border: filterBudget.includes(b) ? 'none' : '1px solid var(--border)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {openFilter === 'distance' && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {DISTANCE_OPTIONS.map(d => (
+                    <button
+                      key={d.value}
+                      onClick={() => setFilterDistance(d.value)}
+                      style={{
+                        padding: '7px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
+                        background: filterDistance === d.value ? 'var(--orange)' : 'var(--bg)',
+                        color: filterDistance === d.value ? '#fff' : 'var(--text-2)',
+                        border: filterDistance === d.value ? 'none' : '1px solid var(--border)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {openFilter === 'cuisine' && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {CUISINE_OPTIONS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => toggleCuisine(c)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 500,
+                        background: filterCuisine.includes(c) ? 'var(--orange)' : 'var(--bg)',
+                        color: filterCuisine.includes(c) ? '#fff' : 'var(--text-2)',
+                        border: filterCuisine.includes(c) ? 'none' : '1px solid var(--border)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Vibe selector → launches tournament inline */}
         <div>
@@ -172,30 +349,9 @@ export default function Home() {
                 }}
               >
                 <span style={{ fontSize: 26 }}>{e}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: activeVibe?.value === value ? 'var(--orange)' : 'var(--text-5)' }}>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Filters
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {FILTERS.map((f, i) => (
-              <button
-                key={f}
-                style={{
-                  padding: '6px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
-                  border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
-                  background: i === 0 ? 'var(--pill-active-bg)' : 'var(--surface)',
-                  borderColor: i === 0 ? 'var(--pill-active-bg)' : 'var(--border)',
-                  color: i === 0 ? 'var(--pill-active-color)' : 'var(--text-2)',
-                }}
-              >
-                {f}
+                <span style={{ fontSize: 12, fontWeight: 600, color: activeVibe?.value === value ? 'var(--orange)' : 'var(--text-5)' }}>
+                  {label}
+                </span>
               </button>
             ))}
           </div>
@@ -206,13 +362,15 @@ export default function Home() {
       <div style={{ width: 380, flexShrink: 0, position: 'relative' }}>
         {activeVibe ? (
           <TournamentDeck
-            key={activeVibe.value}
+            key={tournamentKey!}
             vibe={activeVibe.value}
             vibeLabel={activeVibe.label}
             vibeEmoji={activeVibe.emoji}
             lat={coords.current.lat}
             lng={coords.current.lng}
-            maxDistanceKm={user?.max_distance ?? 25}
+            maxDistanceKm={filterDistance}
+            budget={filterBudget.length > 0 ? filterBudget : undefined}
+            cuisine={filterCuisine.length > 0 ? filterCuisine : undefined}
             onExit={() => setActiveVibe(null)}
             onNavigateSaved={() => navigate('/saved')}
           />
@@ -227,7 +385,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Toast */}
             {toast && (
               <div style={{
                 position: 'absolute', top: -44, left: '50%', transform: 'translateX(-50%)',
