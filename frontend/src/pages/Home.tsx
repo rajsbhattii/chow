@@ -1,7 +1,9 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import TournamentDeck from '../components/TournamentDeck'
 import SwipeCard from '../components/SwipeCard'
-import { fetchRestaurants, recordSwipe } from '../data/restaurants'
+import { bookmarkRestaurant, fetchRestaurants, recordSwipe } from '../data/restaurants'
 import type { RestaurantDetail } from '../data/restaurants'
 import { useAuth } from '../context/AuthContext'
 
@@ -31,23 +33,23 @@ function getGreeting() {
 export default function Home() {
   const { text, emoji } = getGreeting()
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [restaurants, setRestaurants] = useState<RestaurantDetail[]>([])
   const [deckIndex, setDeckIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeVibe, setActiveVibe] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [activeVibe, setActiveVibe] = useState<{ value: string; label: string; emoji: string } | null>(null)
 
   const coords = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
 
-  async function load(vibe?: string) {
+  async function load() {
     setLoading(true)
     setError('')
     try {
       const res = await fetchRestaurants(coords.current.lat, coords.current.lng, {
         maxDistanceKm: user?.max_distance ?? 25,
-        vibe: vibe ?? activeVibe ?? undefined,
         excludeSwiped: true,
         limit: 50,
       })
@@ -66,35 +68,27 @@ export default function Home() {
         coords.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         load()
       },
-      () => load(), // denied — use Toronto default
+      () => load(),
       { timeout: 5000 }
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function selectVibe(value: string) {
-    if (activeVibe === value) {
-      // Re-click same vibe → reshuffle, keep it active
-      load(value)
-    } else {
-      setActiveVibe(value)
-      load(value)
-    }
-  }
-
-  async function handleSwipe(direction: 'left' | 'right' | 'maybe') {
+  async function handleSwipe(direction: 'left' | 'right' | 'maybe' | 'bookmark') {
     const restaurant = restaurants[deckIndex]
     if (!restaurant) return
 
-    if (direction === 'maybe') return  // stays in deck, nothing recorded
+    if (direction === 'maybe') return  // stays in deck
 
     setDeckIndex(i => i + 1)
 
     try {
-      const result = await recordSwipe(restaurant.id, direction)
-      if (result.saved) {
+      if (direction === 'bookmark') {
+        await bookmarkRestaurant(restaurant.id)
         setToast(`Saved ${restaurant.name}!`)
         setTimeout(() => setToast(''), 2500)
+      } else {
+        await recordSwipe(restaurant.id, direction)
       }
     } catch {
       // swipe UI already advanced — silently ignore network errors
@@ -140,26 +134,45 @@ export default function Home() {
           <ChevronRight size={16} color="var(--border)" />
         </button>
 
-        {/* Vibe selector */}
+        {/* Vibe selector → launches tournament inline */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            What's the move?
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                What's the move?
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text-4)' }}>
+                Pick a vibe to start your tournament
+              </p>
+            </div>
+            {activeVibe && (
+              <button
+                onClick={() => setActiveVibe(null)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--border)', border: 'none', cursor: 'pointer', padding: 0,
+                }}
+              >
+                <X size={14} color="var(--text-3)" strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {VIBES.map(({ label, emoji: e, value }) => (
               <button
                 key={value}
-                onClick={() => selectVibe(value)}
+                onClick={() => setActiveVibe({ value, label, emoji: e })}
                 className="card"
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   gap: 8, padding: '20px 12px', cursor: 'pointer', transition: 'all 0.15s',
-                  borderColor: activeVibe === value ? 'var(--orange)' : 'var(--border)',
-                  background: activeVibe === value ? 'var(--surface-warm)' : 'var(--surface)',
+                  borderColor: activeVibe?.value === value ? 'var(--orange)' : 'var(--border)',
+                  background: activeVibe?.value === value ? 'var(--surface-warm)' : 'var(--surface)',
                 }}
               >
                 <span style={{ fontSize: 26 }}>{e}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: activeVibe === value ? 'var(--orange)' : 'var(--text-5)' }}>{label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: activeVibe?.value === value ? 'var(--orange)' : 'var(--text-5)' }}>{label}</span>
               </button>
             ))}
           </div>
@@ -189,46 +202,62 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Right column — deck ── */}
+      {/* ── Right column — tournament or freeplay deck ── */}
       <div style={{ width: 380, flexShrink: 0, position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Up next
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--text-4)' }}>
-            {!loading && restaurants.length > 0 ? `${deckIndex + 1} of ${restaurants.length}` : ''}
-          </p>
-        </div>
-
-        {/* Toast */}
-        {toast && (
-          <div style={{
-            position: 'absolute', top: -44, left: '50%', transform: 'translateX(-50%)',
-            background: 'var(--surface-inverse)', color: '#fff',
-            padding: '8px 16px', borderRadius: 99, fontSize: 13, fontWeight: 600,
-            whiteSpace: 'nowrap', zIndex: 10,
-          }}>
-            ❤️ {toast}
-          </div>
-        )}
-
-        {loading ? (
-          <EmptyDeck icon="🍜" title="Finding restaurants nearby…" />
-        ) : error ? (
-          <EmptyDeck icon="⚠️" title={error} />
-        ) : !current ? (
-          <EmptyDeck
-            icon="✅"
-            title="You've seen everything!"
-            subtitle="Check your saved restaurants or reset the deck."
-            action={{ label: 'Start over', onClick: () => load() }}
+        {activeVibe ? (
+          <TournamentDeck
+            key={activeVibe.value}
+            vibe={activeVibe.value}
+            vibeLabel={activeVibe.label}
+            vibeEmoji={activeVibe.emoji}
+            lat={coords.current.lat}
+            lng={coords.current.lng}
+            maxDistanceKm={user?.max_distance ?? 25}
+            onExit={() => setActiveVibe(null)}
+            onNavigateSaved={() => navigate('/saved')}
           />
         ) : (
-          <SwipeCard
-            key={current.id}
-            restaurant={current}
-            onSwipe={handleSwipe}
-          />
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Up next
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-4)' }}>
+                {!loading && restaurants.length > 0 ? `${deckIndex + 1} of ${restaurants.length}` : ''}
+              </p>
+            </div>
+
+            {/* Toast */}
+            {toast && (
+              <div style={{
+                position: 'absolute', top: -44, left: '50%', transform: 'translateX(-50%)',
+                background: 'var(--surface-inverse)', color: '#fff',
+                padding: '8px 16px', borderRadius: 99, fontSize: 13, fontWeight: 600,
+                whiteSpace: 'nowrap', zIndex: 10,
+              }}>
+                ❤️ {toast}
+              </div>
+            )}
+
+            {loading ? (
+              <EmptyDeck icon="🍜" title="Finding restaurants nearby…" />
+            ) : error ? (
+              <EmptyDeck icon="⚠️" title={error} />
+            ) : !current ? (
+              <EmptyDeck
+                icon="✅"
+                title="You've seen everything!"
+                subtitle="Check your saved restaurants or reset the deck."
+                action={{ label: 'Start over', onClick: load }}
+              />
+            ) : (
+              <SwipeCard
+                key={current.id}
+                restaurant={current}
+                onSwipe={handleSwipe}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -8,7 +8,7 @@ const SWIPE_THRESHOLD = 80
 
 interface Props {
   restaurant: RestaurantDetail
-  onSwipe?: (dir: 'left' | 'right' | 'maybe') => void
+  onSwipe?: (dir: 'left' | 'right' | 'maybe' | 'bookmark') => void
 }
 
 export default function SwipeCard({ restaurant, onSwipe }: Props) {
@@ -21,15 +21,15 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
   const [showModal, setShowModal] = useState(false)
   const ref = useRef(null)
 
-  function flyOut(dir: 'left' | 'right' | 'maybe') {
+  function flyOut(dir: 'left' | 'right' | 'maybe' | 'bookmark') {
     if (dir === 'maybe') {
       if (onSwipe) onSwipe('maybe')
       return
     }
-    animate(x, dir === 'right' ? 600 : -600, { duration: 0.35, ease: 'easeIn' })
+    animate(x, dir === 'left' ? -600 : 600, { duration: 0.35, ease: 'easeIn' })
     setTimeout(() => {
       if (onSwipe) onSwipe(dir)
-      else setGone(dir)
+      else setGone(dir === 'bookmark' ? 'right' : dir)
     }, 350)
   }
 
@@ -105,7 +105,7 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
                 <div style={{
                   border: '3px solid #22c55e', borderRadius: 8, padding: '4px 12px',
                   color: '#22c55e', fontWeight: 900, fontSize: 18, letterSpacing: '0.05em',
-                }}>SAVE</div>
+                }}>NICE</div>
               </motion.div>
 
               {/* Pass stamp */}
@@ -170,7 +170,7 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
                 <X size={22} strokeWidth={2.5} />
               </button>
               <button
-                onClick={() => flyOut('maybe')}
+                onClick={() => flyOut('bookmark')}
                 style={{
                   width: 46, height: 46, borderRadius: '50%', background: 'var(--bg)',
                   border: '1.5px solid #c4b5fd', color: '#8b5cf6', cursor: 'pointer',

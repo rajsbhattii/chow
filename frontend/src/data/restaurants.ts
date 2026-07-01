@@ -33,6 +33,7 @@ export async function fetchRestaurants(
     cuisine?: string[]
     maxDistanceKm?: number
     vibe?: string
+    shuffle?: boolean
     excludeSwiped?: boolean
     limit?: number
     offset?: number
@@ -45,6 +46,7 @@ export async function fetchRestaurants(
   if (params.cuisine) params.cuisine.forEach(c => p.append('cuisine', c))
   if (params.maxDistanceKm) p.set('max_distance_km', String(params.maxDistanceKm))
   if (params.vibe) p.set('vibe', params.vibe)
+  if (params.shuffle) p.set('shuffle', 'true')
   if (params.excludeSwiped !== undefined) p.set('exclude_swiped', String(params.excludeSwiped))
   if (params.limit) p.set('limit', String(params.limit))
   if (params.offset) p.set('offset', String(params.offset))
@@ -53,8 +55,12 @@ export async function fetchRestaurants(
   return data
 }
 
-export async function recordSwipe(restaurantId: string, direction: 'left' | 'right'): Promise<{ saved: boolean }> {
-  const { data } = await api.post('/api/swipes', { restaurant_id: restaurantId, direction })
+export async function recordSwipe(restaurantId: string, direction: 'left' | 'right'): Promise<void> {
+  await api.post('/api/swipes', { restaurant_id: restaurantId, direction })
+}
+
+export async function bookmarkRestaurant(restaurantId: string): Promise<{ saved: boolean }> {
+  const { data } = await api.post<{ saved: boolean }>('/api/saves', { restaurant_id: restaurantId })
   return data
 }
 

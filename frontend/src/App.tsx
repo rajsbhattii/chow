@@ -11,6 +11,7 @@ import Explore from './pages/Explore'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Saved from './pages/Saved'
+import Tournament from './pages/Tournament'
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/home" element={<Home />} />
+                <Route path="/tournament" element={<Tournament />} />
                 <Route path="/saved" element={<Saved />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/profile" element={<Profile />} />

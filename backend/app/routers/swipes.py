@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.restaurant import Restaurant
-from app.models.save import Save
 from app.models.swipe import Swipe
 from app.models.user import User
 
@@ -52,24 +51,8 @@ async def record_swipe(
         )
         db.add(swipe)
 
-    saved = False
-    if body.direction == "right":
-        existing_save = await db.execute(
-            select(Save).where(
-                Save.user_id == current_user.id,
-                Save.restaurant_id == body.restaurant_id,
-            )
-        )
-        if not existing_save.scalar_one_or_none():
-            db.add(Save(
-                user_id=current_user.id,
-                restaurant_id=body.restaurant_id,
-                status="want_to_go",
-            ))
-            saved = True
-
     await db.commit()
-    return {"saved": saved}
+    return {}
 
 
 @router.delete("/history", status_code=200)
