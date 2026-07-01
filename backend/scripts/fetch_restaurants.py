@@ -127,6 +127,7 @@ FIELD_MASK = ",".join([
     "places.userRatingCount",
     "places.priceLevel",
     "places.types",
+    "places.primaryType",
     "places.websiteUri",
     "places.photos",
     "places.formattedAddress",
@@ -195,6 +196,8 @@ def derive_tags(place: dict, cuisine: str) -> list[str]:
         tags.append("Date night")
     if cuisine in ("Indian", "Chinese", "Ethiopian", "Middle Eastern"):
         tags.append("Group-friendly")
+    if cuisine in ("American", "Italian", "Chinese", "Japanese", "Korean", "Indian"):
+        tags.append("Comfort food")
 
     return tags[:4]
 
@@ -270,6 +273,9 @@ async def main() -> None:
                 continue
 
             types = place.get("types", [])
+            primary_type = place.get("primaryType", "")
+            # Store primaryType first so it's easy to check the most specific type
+            place_types = ([primary_type] + [t for t in types if t != primary_type]) if primary_type else types
             cuisine = infer_cuisine(types)
 
             price_str = place.get("priceLevel", "")
@@ -293,6 +299,7 @@ async def main() -> None:
                 row.review_count = place.get("userRatingCount")
                 row.image_url = image_url or row.image_url
                 row.tags = tags
+                row.place_types = place_types
                 updated += 1
             else:
                 db.add(Restaurant(
@@ -310,6 +317,7 @@ async def main() -> None:
                     image_emoji=CUISINE_EMOJI.get(cuisine, "🍽️"),
                     neighbourhood=neighbourhood,
                     tags=tags,
+                    place_types=place_types,
                 ))
                 inserted += 1
 

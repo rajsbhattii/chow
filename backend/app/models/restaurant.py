@@ -26,6 +26,7 @@ class Restaurant(UUIDMixin, Base):
     review_count: Mapped[int | None] = mapped_column(nullable=True)
     top_reviews: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     tags: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    place_types: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     neighbourhood: Mapped[str | None] = mapped_column(String(120), nullable=True)
     google_place_id: Mapped[str | None] = mapped_column(
         String(255), unique=True, nullable=True, index=True

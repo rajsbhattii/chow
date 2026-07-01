@@ -73,14 +73,20 @@ export default function Home() {
   }, [])
 
   function selectVibe(value: string) {
-    const next = activeVibe === value ? null : value
-    setActiveVibe(next)
-    load(next ?? undefined)
+    if (activeVibe === value) {
+      // Re-click same vibe → reshuffle, keep it active
+      load(value)
+    } else {
+      setActiveVibe(value)
+      load(value)
+    }
   }
 
-  async function handleSwipe(direction: 'left' | 'right') {
+  async function handleSwipe(direction: 'left' | 'right' | 'maybe') {
     const restaurant = restaurants[deckIndex]
     if (!restaurant) return
+
+    if (direction === 'maybe') return  // stays in deck, nothing recorded
 
     setDeckIndex(i => i + 1)
 

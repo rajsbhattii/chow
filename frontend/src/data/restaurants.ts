@@ -57,3 +57,61 @@ export async function recordSwipe(restaurantId: string, direction: 'left' | 'rig
   const { data } = await api.post('/api/swipes', { restaurant_id: restaurantId, direction })
   return data
 }
+
+export async function resetSwipeHistory(): Promise<{ cleared: number }> {
+  const { data } = await api.delete('/api/swipes/history')
+  return data
+}
+
+export interface SavedItem {
+  saveId: string
+  savedAt: string
+  status: 'want_to_go' | 'been_here'
+  restaurant: RestaurantDetail
+}
+
+export interface SavesResponse {
+  saves: SavedItem[]
+  total: number
+}
+
+export async function fetchSaves(params: {
+  status?: 'want_to_go' | 'been_here' | 'all'
+  lat?: number
+  lng?: number
+} = {}): Promise<SavesResponse> {
+  const p = new URLSearchParams()
+  if (params.status) p.set('status', params.status)
+  if (params.lat) p.set('lat', String(params.lat))
+  if (params.lng) p.set('lng', String(params.lng))
+  const { data } = await api.get<SavesResponse>(`/api/saves?${p}`)
+  return data
+}
+
+export async function deleteSave(saveId: string): Promise<void> {
+  await api.delete(`/api/saves/${saveId}`)
+}
+
+export interface VisitResponse {
+  visit: {
+    id: string
+    restaurantId: string
+    starRating: number
+    wouldReturn: string
+    visitedAt: string
+  }
+  badgesUnlocked: string[]
+}
+
+export async function recordVisit(
+  restaurantId: string,
+  starRating: number,
+  wouldReturn: 'definitely' | 'maybe' | 'probably_not',
+): Promise<VisitResponse> {
+  const { data } = await api.post<VisitResponse>('/api/visits', {
+    restaurant_id: restaurantId,
+    star_rating: starRating,
+    would_return: wouldReturn,
+  })
+  return data
+}

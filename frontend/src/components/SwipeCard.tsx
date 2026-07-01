@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
-import { Heart, MapPin, Star, Undo2, X } from 'lucide-react'
+import { Bookmark, Heart, MapPin, Star, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { RestaurantDetail } from '../data/restaurants'
 import RestaurantModal from './RestaurantModal'
@@ -8,7 +8,7 @@ const SWIPE_THRESHOLD = 80
 
 interface Props {
   restaurant: RestaurantDetail
-  onSwipe?: (dir: 'left' | 'right') => void
+  onSwipe?: (dir: 'left' | 'right' | 'maybe') => void
 }
 
 export default function SwipeCard({ restaurant, onSwipe }: Props) {
@@ -21,7 +21,11 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
   const [showModal, setShowModal] = useState(false)
   const ref = useRef(null)
 
-  function flyOut(dir: 'left' | 'right') {
+  function flyOut(dir: 'left' | 'right' | 'maybe') {
+    if (dir === 'maybe') {
+      if (onSwipe) onSwipe('maybe')
+      return
+    }
     animate(x, dir === 'right' ? 600 : -600, { duration: 0.35, ease: 'easeIn' })
     setTimeout(() => {
       if (onSwipe) onSwipe(dir)
@@ -75,11 +79,10 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
               else if (info.offset.x < -SWIPE_THRESHOLD) flyOut('left')
               else animate(x, 0, { type: 'spring', stiffness: 350, damping: 25 })
             }}
-            onTap={() => setShowModal(true)}
             whileDrag={{ cursor: 'grabbing' }}
           >
-            {/* Image section */}
-            <div style={{ position: 'relative' }}>
+            {/* Image section — tap here to open modal */}
+            <div style={{ position: 'relative' }} onClick={() => setShowModal(true)}>
               {restaurant.imageUrl ? (
                 <img
                   src={restaurant.imageUrl}
@@ -167,14 +170,14 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
                 <X size={22} strokeWidth={2.5} />
               </button>
               <button
-                onClick={reset}
+                onClick={() => flyOut('maybe')}
                 style={{
-                  width: 38, height: 38, borderRadius: '50%', background: 'var(--bg)',
-                  border: '1.5px solid var(--border)', color: 'var(--text-4)', cursor: 'pointer',
+                  width: 46, height: 46, borderRadius: '50%', background: 'var(--bg)',
+                  border: '1.5px solid #c4b5fd', color: '#8b5cf6', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Undo2 size={14} />
+                <Bookmark size={18} strokeWidth={2} />
               </button>
               <button
                 onClick={() => flyOut('right')}

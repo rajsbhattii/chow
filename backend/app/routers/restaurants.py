@@ -15,14 +15,15 @@ router = APIRouter(prefix="/api/restaurants", tags=["restaurants"])
 
 PRICE_LABEL = {1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}
 
-VIBE_TAGS = {
-    "date_night": "Date night",
-    "quick_bite": "Quick bite",
-    "brunch": "Brunch",
-    "adventurous": "Trending",
-    "comfort": "Comfort food",
-    "group": "Group-friendly",
-}
+# Cuisine lists kept deliberately non-overlapping to avoid same restaurants appearing in multiple vibes
+DATE_NIGHT_CUISINES = ["Italian", "French", "Mediterranean", "Seafood"]
+# Middle Eastern excluded — too chain-heavy (Osmow's etc). Thai/Viet are genuinely niche.
+ADVENTUROUS_CUISINES = ["Ethiopian", "Vietnamese", "Thai"]
+COMFORT_CUISINES = ["American", "Chinese", "Japanese", "Indian", "Korean"]
+# Group dinner requires sit-down (price >= $$) — excludes fast casual like Osmow's/Pitaland
+GROUP_CUISINES = ["Indian", "Chinese", "Ethiopian", "Middle Eastern", "Korean", "Mexican"]
+# Quick bite excludes sit-down cuisine types even if Google priced them at $$
+QUICK_BITE_EXCLUDE_CUISINES = ["Italian", "French", "Mediterranean", "Seafood", "Japanese"]
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -65,6 +66,7 @@ async def list_restaurants(
     cuisine: Optional[list[str]] = Query(default=None),
     max_distance_km: int = Query(default=25),
     vibe: Optional[str] = Query(default=None),
+    shuffle: bool = Query(default=False),
     dietary: Optional[list[str]] = Query(default=None),
     exclude_swiped: bool = Query(default=True),
     limit: int = Query(default=20, le=100),
@@ -91,32 +93,116 @@ async def list_restaurants(
         ]
         stmt = stmt.where(or_(*conditions))
 
-    # Vibe filter — match against tags
-    if vibe and vibe in VIBE_TAGS:
-        tag = VIBE_TAGS[vibe]
+    # Vibe filter — multi-signal queries per vibe
+    if vibe:
+        from sqlalchemy import and_, or_
         from sqlalchemy.dialects.postgresql import JSONB
-        stmt = stmt.where(Restaurant.tags.cast(JSONB).contains([tag]))
 
-    # Exclude already-swiped restaurants
+        def cuisine_in(cuisines: list[str]):
+            return or_(*[Restaurant.cuisine.cast(JSONB).contains([c]) for c in cuisines])
+
+        def cuisine_not_in(cuisines: list[str]):
+            return and_(*[~Restaurant.cuisine.cast(JSONB).contains([c]) for c in cuisines])
+
+        def has_place_type(t: str):
+            return Restaurant.place_types.cast(JSONB).contains([t])
+
+        def not_place_type(t: str):
+            return ~Restaurant.place_types.cast(JSONB).contains([t])
+
+        if vibe == "date_night":
+            # Sit-down Italian/French/etc — exclude pizza chains and fast food
+            stmt = stmt.where(
+                cuisine_in(DATE_NIGHT_CUISINES),
+                not_place_type("fast_food_restaurant"),
+                not_place_type("pizza_restaurant"),
+                Restaurant.price_scale >= 2,
+                Restaurant.avg_rating >= 4.0,
+            )
+        elif vibe == "quick_bite":
+            # Fast food chains OR strictly cheap (price = $) spots
+            stmt = stmt.where(
+                or_(
+                    has_place_type("fast_food_restaurant"),
+                    Restaurant.price_scale == 1,
+                ),
+                Restaurant.avg_rating >= 4.0,
+            )
+        elif vibe == "brunch":
+            stmt = stmt.where(cuisine_in(["Brunch"]))
+        elif vibe == "adventurous":
+            # Fusion types are always adventurous regardless of preferences
+            fusion_cond = or_(
+                has_place_type("fusion_restaurant"),
+                has_place_type("asian_fusion_restaurant"),
+            )
+
+            user_cuisines = set(current_user.cuisine_preferences or [])
+            if user_cuisines:
+                # Only show niche cuisines the user hasn't flagged as familiar
+                unfamiliar = [c for c in ADVENTUROUS_CUISINES if c not in user_cuisines]
+                if unfamiliar:
+                    niche_cond = or_(fusion_cond, cuisine_in(unfamiliar))
+                else:
+                    # User already knows all adventurous cuisines — fusion only
+                    niche_cond = fusion_cond
+            else:
+                # No preferences on file — show everything adventurous
+                niche_cond = or_(fusion_cond, cuisine_in(ADVENTUROUS_CUISINES))
+
+            stmt = stmt.where(niche_cond, not_place_type("fast_food_restaurant"))
+        elif vibe == "comfort":
+            stmt = stmt.where(
+                cuisine_in(COMFORT_CUISINES),
+                Restaurant.price_scale <= 3,
+            )
+        elif vibe == "group":
+            # Sit-down only — Google's fast_food_restaurant type is the clean exclusion signal
+            stmt = stmt.where(
+                cuisine_in(GROUP_CUISINES),
+                not_place_type("fast_food_restaurant"),
+                Restaurant.price_scale >= 2,
+            )
+
+    # Exclude swiped restaurants — right swipes always excluded, left swipes return after 7 days
     if exclude_swiped:
-        swiped_subq = (
+        from datetime import datetime, timedelta
+        left_swipe_cutoff = datetime.utcnow() - timedelta(days=7)
+
+        right_swipe_subq = (
             select(Swipe.restaurant_id)
-            .where(Swipe.user_id == current_user.id)
+            .where(Swipe.user_id == current_user.id, Swipe.direction == "right")
             .scalar_subquery()
         )
-        stmt = stmt.where(Restaurant.id.not_in(swiped_subq))
+        recent_left_subq = (
+            select(Swipe.restaurant_id)
+            .where(
+                Swipe.user_id == current_user.id,
+                Swipe.direction == "left",
+                Swipe.swiped_at >= left_swipe_cutoff,
+            )
+            .scalar_subquery()
+        )
+        stmt = stmt.where(
+            Restaurant.id.not_in(right_swipe_subq),
+            Restaurant.id.not_in(recent_left_subq),
+        )
 
     result = await db.execute(stmt)
     all_restaurants = result.scalars().all()
 
     # Filter by distance (done in Python after Haversine — avoids PostGIS dependency)
+    import random
     with_distance = [
         (r, _haversine_km(lat, lng, float(r.latitude or 0), float(r.longitude or 0)))
         for r in all_restaurants
         if r.latitude and r.longitude
     ]
     with_distance = [(r, d) for r, d in with_distance if d <= max_distance_km]
-    with_distance.sort(key=lambda x: x[1])
+    if shuffle or vibe:
+        random.shuffle(with_distance)
+    else:
+        with_distance.sort(key=lambda x: x[1])
 
     total = len(with_distance)
     page = with_distance[offset: offset + limit]

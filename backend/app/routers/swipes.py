@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -70,3 +70,19 @@ async def record_swipe(
 
     await db.commit()
     return {"saved": saved}
+
+
+@router.delete("/history", status_code=200)
+async def reset_swipe_history(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all left swipes so the deck refills. Saves are untouched."""
+    result = await db.execute(
+        delete(Swipe).where(
+            Swipe.user_id == current_user.id,
+            Swipe.direction == "left",
+        )
+    )
+    await db.commit()
+    return {"cleared": result.rowcount}
