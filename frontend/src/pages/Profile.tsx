@@ -56,37 +56,8 @@ export default function Profile() {
 
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [statsYear, setStatsYear] = useState<number | null>(null) // null = all time
-  const [dna] = useState<TasteDNA>({
-    empty: false,
-    total_visits: 15,
-    cuisine_breakdown: [
-      { cuisine: 'Italian', count: 6, pct: 40 },
-      { cuisine: 'Korean', count: 4, pct: 27 },
-      { cuisine: 'Indian', count: 2, pct: 13 },
-      { cuisine: 'Thai', count: 1, pct: 7 },
-      { cuisine: 'Brunch', count: 1, pct: 7 },
-      { cuisine: 'Ethiopian', count: 1, pct: 6 },
-    ],
-    price_breakdown: [
-      { tier: 2, label: '$$', count: 11, pct: 73 },
-      { tier: 3, label: '$$$', count: 3, pct: 20 },
-      { tier: 4, label: '$$$$', count: 1, pct: 7 },
-    ],
-    top_neighbourhoods: [
-      { name: 'Distillery District', count: 5 },
-      { name: 'Annex', count: 4 },
-      { name: 'Kensington Market', count: 3 },
-      { name: 'Yorkville', count: 2 },
-      { name: 'Liberty Village', count: 1 },
-    ],
-    avg_rating_given: 4.4,
-    most_visited: [
-      { name: 'Piano Piano', count: 4, emoji: '🍝' },
-      { name: 'Pai Northern Thai', count: 3, emoji: '🍜' },
-      { name: 'Miku Toronto', count: 2, emoji: '🍣' },
-    ],
-    would_return_breakdown: { definitely: 12, maybe: 3 },
-  })
+  const [dna, setDna] = useState<TasteDNA | null>(null)
+  const [dnaLoading, setDnaLoading] = useState(false)
 
   // Settings state — seeded from user once loaded
   const [settingsName, setSettingsName]           = useState('')
@@ -103,6 +74,12 @@ export default function Profile() {
     setStats(null)
     fetchProfileStats(statsYear ?? undefined).then(setStats).catch(() => {})
   }, [statsYear])
+
+  useEffect(() => {
+    if (tab !== 'Taste DNA' || dna !== null) return
+    setDnaLoading(true)
+    fetchTasteDNA().then(setDna).catch(() => setDna({ empty: true } as TasteDNA)).finally(() => setDnaLoading(false))
+  }, [tab])
 
 
   useEffect(() => {
@@ -309,7 +286,7 @@ export default function Profile() {
       )}
 
       {tab === 'Taste DNA' && (
-        !dna ? (
+        dnaLoading || !dna ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <div style={{ width: 28, height: 28, border: '3px solid var(--border)', borderTopColor: 'var(--orange)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
