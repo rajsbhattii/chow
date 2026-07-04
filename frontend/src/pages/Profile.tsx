@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchProfileStats } from '../data/restaurants'
-import type { ProfileStats } from '../data/restaurants'
+import { fetchProfileStats, fetchTasteDNA } from '../data/restaurants'
+import type { ProfileStats, TasteDNA } from '../data/restaurants'
+import PaletteDna from '../components/PaletteDna'
 import api from '../lib/api'
 
 const TABS = ['Stats', 'Badges', 'Taste DNA', 'Settings']
@@ -55,6 +56,37 @@ export default function Profile() {
 
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [statsYear, setStatsYear] = useState<number | null>(null) // null = all time
+  const [dna] = useState<TasteDNA>({
+    empty: false,
+    total_visits: 15,
+    cuisine_breakdown: [
+      { cuisine: 'Italian', count: 6, pct: 40 },
+      { cuisine: 'Korean', count: 4, pct: 27 },
+      { cuisine: 'Indian', count: 2, pct: 13 },
+      { cuisine: 'Thai', count: 1, pct: 7 },
+      { cuisine: 'Brunch', count: 1, pct: 7 },
+      { cuisine: 'Ethiopian', count: 1, pct: 6 },
+    ],
+    price_breakdown: [
+      { tier: 2, label: '$$', count: 11, pct: 73 },
+      { tier: 3, label: '$$$', count: 3, pct: 20 },
+      { tier: 4, label: '$$$$', count: 1, pct: 7 },
+    ],
+    top_neighbourhoods: [
+      { name: 'Distillery District', count: 5 },
+      { name: 'Annex', count: 4 },
+      { name: 'Kensington Market', count: 3 },
+      { name: 'Yorkville', count: 2 },
+      { name: 'Liberty Village', count: 1 },
+    ],
+    avg_rating_given: 4.4,
+    most_visited: [
+      { name: 'Piano Piano', count: 4, emoji: '🍝' },
+      { name: 'Pai Northern Thai', count: 3, emoji: '🍜' },
+      { name: 'Miku Toronto', count: 2, emoji: '🍣' },
+    ],
+    would_return_breakdown: { definitely: 12, maybe: 3 },
+  })
 
   // Settings state — seeded from user once loaded
   const [settingsName, setSettingsName]           = useState('')
@@ -71,6 +103,7 @@ export default function Profile() {
     setStats(null)
     fetchProfileStats(statsYear ?? undefined).then(setStats).catch(() => {})
   }, [statsYear])
+
 
   useEffect(() => {
     if (!user) return
@@ -276,15 +309,115 @@ export default function Profile() {
       )}
 
       {tab === 'Taste DNA' && (
-        <div className="card" style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '80px 40px', textAlign: 'center', gap: 14, borderStyle: 'dashed',
-        }}>
-          <span style={{ fontSize: 52 }}>🧬</span>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>Your Taste DNA</p>
-          <p style={{ fontSize: 14, color: 'var(--text-4)' }}>Swipe more restaurants to unlock your cuisine profile.</p>
-        </div>
+        !dna ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+            <div style={{ width: 28, height: 28, border: '3px solid var(--border)', borderTopColor: 'var(--orange)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          </div>
+        ) : dna.empty ? (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 40px', textAlign: 'center', gap: 14, borderStyle: 'dashed' }}>
+            <span style={{ fontSize: 52 }}>🧬</span>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>Your Taste DNA</p>
+            <p style={{ fontSize: 14, color: 'var(--text-4)' }}>Log some visits to unlock your cuisine profile.</p>
+          </div>
+        ) : (() => {
+          const PALETTE = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#C3A6FF']
+          const PRICE_COLORS: Record<number, string> = { 1: '#4ECDC4', 2: '#45B7D1', 3: '#FF9F43', 4: '#FF6B6B' }
+
+          const cuisineEntries = dna.cuisine_breakdown.map(({ cuisine, pct }, i) => ({
+            name: cuisine,
+            color: PALETTE[i % PALETTE.length],
+            pct,
+          }))
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Row: Your palate (75%) | Most visited (25%) */}
+              <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+
+                {/* Your palate — 3D DNA helix */}
+                <div className="card" style={{ padding: '24px 28px', width: '75%', flexShrink: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-4)', marginBottom: 20 }}>Your palate</p>
+                  <PaletteDna cuisines={cuisineEntries} />
+                </div>
+
+                {/* Most visited — 25% */}
+                {dna.most_visited.length > 0 && (
+                  <div className="card" style={{ padding: '24px 22px', flex: 1 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-4)', marginBottom: 16 }}>Most visited</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {dna.most_visited.map(({ name, count, emoji }, i) => (
+                        <div key={name} style={{
+                          background: 'var(--surface-2)', borderRadius: 12, padding: '14px 14px',
+                          display: 'flex', alignItems: 'center', gap: 12, position: 'relative',
+                        }}>
+                          {i === 0 && <span style={{ position: 'absolute', top: 8, right: 10, fontSize: 12 }}>👑</span>}
+                          <span style={{ fontSize: 24 }}>{emoji}</span>
+                          <div>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.3 }}>{name}</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 2 }}>{count} visit{count !== 1 ? 's' : ''}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Row: Avg rating (1/4) | Spending (1/4) | Hotspots (1/2) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 16 }}>
+
+                {/* Avg rating */}
+                <div className="card" style={{ padding: '22px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-4)', marginBottom: 8 }}>Avg rating</p>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <span style={{ fontSize: 40, fontWeight: 900, color: 'var(--text-1)', letterSpacing: '-0.03em', lineHeight: 1 }}>{dna.avg_rating_given}</span>
+                    <span style={{ fontSize: 18 }}>⭐</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 8, lineHeight: 1.4 }}>
+                    {(dna.avg_rating_given ?? 0) >= 4.5 ? 'You love almost everything 🥰' : (dna.avg_rating_given ?? 0) >= 4 ? 'Generous with stars ✨' : (dna.avg_rating_given ?? 0) >= 3.5 ? 'Fair critic 🧐' : 'Tough crowd 😤'}
+                  </p>
+                </div>
+
+                {/* Spending */}
+                <div className="card" style={{ padding: '22px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-4)', marginBottom: 14 }}>Spending</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {dna.price_breakdown.map(({ tier, label, pct }) => (
+                      <div key={tier}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{label}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-4)' }}>{pct}%</span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: PRICE_COLORS[tier] }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hotspots */}
+                <div className="card" style={{ padding: '22px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-4)', marginBottom: 14 }}>Hotspots</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {dna.top_neighbourhoods.map(({ name, count }, i) => (
+                      <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-4)', width: 16, textAlign: 'right', flexShrink: 0 }}>#{i + 1}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', flex: 1 }}>{name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'rgba(255,90,31,0.1)', borderRadius: 99, padding: '2px 8px' }}>×{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
+          )
+        })()
       )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {tab === 'Settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

@@ -176,6 +176,23 @@ export interface ProfileStats {
   badges_earned: string[]
 }
 
+export interface TasteDNA {
+  empty: boolean
+  total_visits: number
+  cuisine_breakdown: { cuisine: string; count: number; pct: number }[]
+  price_breakdown: { tier: number; label: string; count: number; pct: number }[]
+  top_neighbourhoods: { name: string; count: number }[]
+  avg_rating_given: number | null
+  most_visited: { name: string; count: number; emoji: string }[]
+  would_return_breakdown: { definitely?: number; maybe?: number; probably_not?: number }
+}
+
+export async function fetchTasteDNA(year?: number): Promise<TasteDNA> {
+  const p = year ? `?year=${year}` : ''
+  const { data } = await api.get<TasteDNA>(`/api/profile/taste-dna${p}`)
+  return data
+}
+
 export async function fetchProfileStats(year?: number): Promise<ProfileStats> {
   const p = year ? `?year=${year}` : ''
   const { data } = await api.get<ProfileStats>(`/api/profile/stats${p}`)

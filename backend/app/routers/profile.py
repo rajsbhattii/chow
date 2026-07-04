@@ -182,3 +182,84 @@ async def get_stats(
         "adventure_score": _adventure_tier(cuisines_tried),
         "badges_earned": badges,
     }
+
+
+@router.get("/taste-dna")
+async def get_taste_dna(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    year: Optional[int] = Query(default=None),
+):
+    uid = current_user.id
+
+    visits_stmt = select(Visit).where(Visit.user_id == uid)
+    if year:
+        visits_stmt = visits_stmt.where(extract("year", Visit.visited_at) == year)
+    all_visits = (await db.execute(visits_stmt)).scalars().all()
+
+    if not all_visits:
+        return {"empty": True}
+
+    restaurant_ids = [v.restaurant_id for v in all_visits]
+    restaurants_result = await db.execute(
+        select(Restaurant).where(Restaurant.id.in_(restaurant_ids))
+    )
+    restaurants = {r.id: r for r in restaurants_result.scalars().all()}
+
+    # Cuisine breakdown
+    cuisine_counts: Counter = Counter()
+    for v in all_visits:
+        r = restaurants.get(v.restaurant_id)
+        for c in (r.cuisine or [] if r else []):
+            cuisine_counts[c] += 1
+    total_cuisine_visits = sum(cuisine_counts.values()) or 1
+    cuisine_breakdown = [
+        {"cuisine": c, "count": n, "pct": round(n / total_cuisine_visits * 100)}
+        for c, n in cuisine_counts.most_common(6)
+    ]
+
+    # Price breakdown
+    price_counts: Counter = Counter()
+    for v in all_visits:
+        r = restaurants.get(v.restaurant_id)
+        if r and r.price_scale:
+            price_counts[r.price_scale] += 1
+    total_price = sum(price_counts.values()) or 1
+    price_breakdown = [
+        {"tier": k, "label": {1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}[k], "count": price_counts[k], "pct": round(price_counts[k] / total_price * 100)}
+        for k in [1, 2, 3, 4] if price_counts[k] > 0
+    ]
+
+    # Top neighbourhoods
+    hood_counts: Counter = Counter()
+    for v in all_visits:
+        r = restaurants.get(v.restaurant_id)
+        if r and r.neighbourhood:
+            hood_counts[r.neighbourhood] += 1
+    top_neighbourhoods = [{"name": n, "count": c} for n, c in hood_counts.most_common(5)]
+
+    # Avg rating given
+    rated = [v.star_rating for v in all_visits if v.star_rating is not None]
+    avg_rating = round(sum(rated) / len(rated), 1) if rated else None
+
+    # Most visited restaurants
+    visit_counts: Counter = Counter(v.restaurant_id for v in all_visits)
+    most_visited = []
+    for rid, count in visit_counts.most_common(3):
+        r = restaurants.get(rid)
+        if r:
+            most_visited.append({"name": r.name, "count": count, "emoji": r.image_emoji or "🍽️"})
+
+    # Would return breakdown
+    return_counts: Counter = Counter(v.would_return for v in all_visits if v.would_return)
+
+    return {
+        "empty": False,
+        "total_visits": len(all_visits),
+        "cuisine_breakdown": cuisine_breakdown,
+        "price_breakdown": price_breakdown,
+        "top_neighbourhoods": top_neighbourhoods,
+        "avg_rating_given": avg_rating,
+        "most_visited": most_visited,
+        "would_return_breakdown": dict(return_counts),
+    }
