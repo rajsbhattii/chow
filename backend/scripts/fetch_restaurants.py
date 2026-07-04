@@ -133,6 +133,7 @@ FIELD_MASK = ",".join([
     "places.formattedAddress",
     "places.shortFormattedAddress",
     "places.location",
+    "places.regularOpeningHours",
 ])
 
 PRICE_LEVEL_MAP = {
@@ -169,6 +170,21 @@ def extract_neighbourhood(place: dict) -> str:
         parts = [p.strip() for p in short.split(",")]
         return parts[0] if parts else short
     return short
+
+
+def extract_max_closing_hour(place: dict) -> int | None:
+    periods = place.get("regularOpeningHours", {}).get("periods", [])
+    hours = []
+    for p in periods:
+        if "close" not in p:
+            continue
+        hour = p["close"]["hour"]
+        open_day = p.get("open", {}).get("day", 0)
+        close_day = p["close"].get("day", open_day)
+        if close_day != open_day:
+            hour += 24
+        hours.append(hour)
+    return max(hours) if hours else None
 
 
 def derive_tags(place: dict, cuisine: str) -> list[str]:
@@ -294,12 +310,16 @@ async def main() -> None:
             )
             row = existing.scalar_one_or_none()
 
+            max_closing_hour = extract_max_closing_hour(place)
+
             if row:
                 row.avg_rating = place.get("rating")
                 row.review_count = place.get("userRatingCount")
                 row.image_url = image_url or row.image_url
                 row.tags = tags
                 row.place_types = place_types
+                if max_closing_hour is not None:
+                    row.max_closing_hour = max_closing_hour
                 updated += 1
             else:
                 db.add(Restaurant(
@@ -318,6 +338,7 @@ async def main() -> None:
                     neighbourhood=neighbourhood,
                     tags=tags,
                     place_types=place_types,
+                    max_closing_hour=max_closing_hour,
                 ))
                 inserted += 1
 

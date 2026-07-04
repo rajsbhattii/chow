@@ -71,11 +71,32 @@ async def list_restaurants(
     exclude_swiped: bool = Query(default=True),
     limit: int = Query(default=20, le=100),
     offset: int = Query(default=0),
+    q: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default=None),  # trending | new | top_rated
+    tag: Optional[str] = Query(default=None),   # hidden_gem | late_night
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     # Build base query
     stmt = select(Restaurant)
+
+    # Text search
+    if q:
+        from sqlalchemy import or_
+        pattern = f"%{q}%"
+        stmt = stmt.where(or_(
+            Restaurant.name.ilike(pattern),
+            Restaurant.neighbourhood.ilike(pattern),
+        ))
+
+    # Tag filters
+    if tag == "hidden_gem":
+        stmt = stmt.where(
+            Restaurant.review_count < 200,
+            Restaurant.avg_rating >= 4.5,
+        )
+    elif tag == "late_night":
+        stmt = stmt.where(Restaurant.max_closing_hour >= 23)
 
     # Budget filter — map "$" labels to price_scale ints
     if budget:
@@ -199,7 +220,14 @@ async def list_restaurants(
         if r.latitude and r.longitude
     ]
     with_distance = [(r, d) for r, d in with_distance if d <= max_distance_km]
-    if shuffle or vibe:
+    if sort == "trending":
+        with_distance.sort(key=lambda x: (x[0].review_count or 0), reverse=True)
+    elif sort == "new":
+        from datetime import datetime as dt
+        with_distance.sort(key=lambda x: (x[0].created_at or dt.min), reverse=True)
+    elif sort == "top_rated":
+        with_distance.sort(key=lambda x: float(x[0].avg_rating or 0), reverse=True)
+    elif shuffle or vibe:
         random.shuffle(with_distance)
     else:
         with_distance.sort(key=lambda x: x[1])

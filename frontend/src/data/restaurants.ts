@@ -55,6 +55,34 @@ export async function fetchRestaurants(
   return data
 }
 
+export async function searchRestaurants(
+  lat: number,
+  lng: number,
+  params: {
+    q?: string
+    sort?: string
+    tag?: string
+    cuisine?: string
+    limit?: number
+    offset?: number
+  } = {}
+): Promise<RestaurantsResponse> {
+  const p = new URLSearchParams()
+  p.set('lat', String(lat))
+  p.set('lng', String(lng))
+  p.set('exclude_swiped', 'false')
+  p.set('max_distance_km', '25')
+  if (params.q) p.set('q', params.q)
+  if (params.sort) p.set('sort', params.sort)
+  if (params.tag) p.set('tag', params.tag)
+  if (params.cuisine) p.append('cuisine', params.cuisine)
+  if (params.limit !== undefined) p.set('limit', String(params.limit))
+  if (params.offset !== undefined) p.set('offset', String(params.offset))
+
+  const { data } = await api.get<RestaurantsResponse>(`/api/restaurants?${p}`)
+  return data
+}
+
 export async function recordSwipe(restaurantId: string, direction: 'left' | 'right'): Promise<void> {
   await api.post('/api/swipes', { restaurant_id: restaurantId, direction })
 }

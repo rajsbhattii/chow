@@ -33,6 +33,7 @@ class Restaurant(UUIDMixin, TimestampMixin, Base):
     )
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_emoji: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    max_closing_hour: Mapped[int | None] = mapped_column(nullable=True)  # 0–47; >24 = past midnight
 
     swipes: Mapped[list["Swipe"]] = relationship(back_populates="restaurant")
     saves: Mapped[list["Save"]] = relationship(back_populates="restaurant")
