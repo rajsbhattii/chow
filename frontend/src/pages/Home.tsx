@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import TournamentDeck from '../components/TournamentDeck'
 import SwipeCard from '../components/SwipeCard'
 import VisitRatingModal from '../components/VisitRatingModal'
-import { bookmarkRestaurant, dismissNudge, fetchNudge, fetchRestaurants, recordSwipe, snoozeNudge } from '../data/restaurants'
+import { bookmarkRestaurant, dismissNudge, fetchNudge, fetchRandomRestaurant, fetchRestaurants, recordSwipe, snoozeNudge } from '../data/restaurants'
 import type { NudgeResponse, RestaurantDetail } from '../data/restaurants'
+import TakeRiskModal from '../components/TakeRiskModal'
 import { useAuth } from '../context/AuthContext'
 
 const DEFAULT_LAT = 43.6532
@@ -61,9 +62,24 @@ export default function Home() {
   const [nudge, setNudge] = useState<NudgeResponse['nudge']>(null)
   const [nudgeShowFollowup, setNudgeShowFollowup] = useState(false)
   const [visitModalOpen, setVisitModalOpen] = useState(false)
+  const [riskRolling, setRiskRolling] = useState(false)
+  const [riskRestaurant, setRiskRestaurant] = useState<RestaurantDetail | null>(null)
 
   const coords = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
   const locationReady = useRef(false)
+
+  async function handleRisk() {
+    if (riskRolling) return
+    setRiskRolling(true)
+    try {
+      const restaurant = await fetchRandomRestaurant({ lat: coords.current.lat, lng: coords.current.lng })
+      setRiskRestaurant(restaurant)
+    } catch {
+      // no results
+    } finally {
+      setRiskRolling(false)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -306,7 +322,7 @@ export default function Home() {
           </div>
 
           {/* Filter chips */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {([
               { key: 'budget' as const, label: budgetLabel, active: budgetActive },
               { key: 'distance' as const, label: distanceLabel, active: distanceActive },
@@ -336,6 +352,20 @@ export default function Home() {
                 />
               </button>
             ))}
+            <button
+              onClick={handleRisk}
+              disabled={riskRolling}
+              title="Take a Risk"
+              style={{
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                fontSize: 16, cursor: riskRolling ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: riskRolling ? 0.6 : 1, transition: 'opacity 0.15s',
+              }}
+            >
+              {riskRolling ? '⏳' : '🎲'}
+            </button>
           </div>
 
           {/* Expanded filter panel */}
@@ -514,6 +544,11 @@ export default function Home() {
           </>
         )}
       </div>
+
+      <TakeRiskModal
+        restaurant={riskRestaurant}
+        onClose={() => setRiskRestaurant(null)}
+      />
     </div>
   )
 }

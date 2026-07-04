@@ -31,6 +31,8 @@ class User(UUIDMixin, TimestampMixin, Base):
     transport_modes: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     dietary_needs: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
 
+    gambler_count: Mapped[int] = mapped_column(default=0, server_default="0")
+
     swipes: Mapped[list["Swipe"]] = relationship(back_populates="user")
     saves: Mapped[list["Save"]] = relationship(back_populates="user")
     visits: Mapped[list["Visit"]] = relationship(back_populates="user")

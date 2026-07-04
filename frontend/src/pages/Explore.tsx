@@ -1,8 +1,9 @@
 import { Search, Star, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import RestaurantModal from '../components/RestaurantModal'
+import TakeRiskModal from '../components/TakeRiskModal'
 import type { RestaurantDetail } from '../data/restaurants'
-import { searchRestaurants } from '../data/restaurants'
+import { fetchRandomRestaurant, searchRestaurants } from '../data/restaurants'
 
 const PAGE_SIZE = 10
 
@@ -106,6 +107,8 @@ export default function Explore() {
   const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [riskRolling, setRiskRolling] = useState(false)
+  const [riskRestaurant, setRiskRestaurant] = useState<RestaurantDetail | null>(null)
 
   const [selected, setSelected] = useState<RestaurantDetail | null>(null)
 
@@ -168,6 +171,26 @@ export default function Explore() {
 
   const hasMore = results.length < total
 
+  async function handleRisk() {
+    if (riskRolling) return
+    setRiskRolling(true)
+    try {
+      const activeVibeObj = VIBES.find(v => v.label === activeVibe)
+      const tag = activeVibeObj && 'tag' in activeVibeObj ? activeVibeObj.tag : undefined
+      const restaurant = await fetchRandomRestaurant({
+        lat, lng,
+        cuisine: activeCuisine ?? undefined,
+        tag,
+        q: query || undefined,
+      })
+      setRiskRestaurant(restaurant)
+    } catch {
+      // no results for current filters — silently ignore
+    } finally {
+      setRiskRolling(false)
+    }
+  }
+
   return (
     <div className="page">
       <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--text-1)', marginBottom: 20 }}>
@@ -220,6 +243,22 @@ export default function Explore() {
             )
           })}
         </div>
+
+        {/* Take a Risk button */}
+        <button
+          onClick={handleRisk}
+          disabled={riskRolling}
+          title="Take a Risk"
+          style={{
+            flexShrink: 0, padding: '7px 14px', borderRadius: 10,
+            fontSize: 13, fontWeight: 600, cursor: riskRolling ? 'default' : 'pointer',
+            border: '1px solid var(--border)', background: 'var(--surface)',
+            color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6,
+            opacity: riskRolling ? 0.6 : 1, transition: 'all 0.15s',
+          }}
+        >
+          <span style={{ fontSize: 15 }}>{riskRolling ? '⏳' : '🎲'}</span> Take a Risk
+        </button>
 
         {/* Sort dropdown */}
         <select
@@ -328,6 +367,12 @@ export default function Explore() {
           onClose={() => setSelected(null)}
         />
       )}
+
+      {/* Take a Risk modal */}
+      <TakeRiskModal
+        restaurant={riskRestaurant}
+        onClose={() => setRiskRestaurant(null)}
+      />
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>

@@ -172,6 +172,10 @@ async def get_stats(
             badges.append("first_in_line")
             break
 
+    # Gambler — used Take a Risk 10+ times
+    if (current_user.gambler_count or 0) >= 10:
+        badges.append("gambler")
+
     # Trendsetter — visited when rating was below 4.5, restaurant now sits at 4.5+
     for v in all_visits:
         r = restaurant_map.get(v.restaurant_id)
@@ -269,4 +273,17 @@ async def get_taste_dna(
         "avg_rating_given": avg_rating,
         "most_visited": most_visited,
         "would_return_breakdown": dict(return_counts),
+    }
+
+
+@router.post("/take-risk")
+async def take_risk(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user.gambler_count = (current_user.gambler_count or 0) + 1
+    await db.commit()
+    return {
+        "gambler_count": current_user.gambler_count,
+        "badge_unlocked": current_user.gambler_count == 10,
     }

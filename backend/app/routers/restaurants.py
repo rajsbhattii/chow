@@ -240,3 +240,48 @@ async def list_restaurants(
         "total": total,
         "offset": offset,
     }
+
+
+@router.get("/random")
+async def random_restaurant(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    max_distance_km: int = Query(default=25),
+    cuisine: Optional[list[str]] = Query(default=None),
+    tag: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import random as _random
+    stmt = select(Restaurant)
+
+    if q:
+        from sqlalchemy import or_
+        pattern = f"%{q}%"
+        stmt = stmt.where(or_(Restaurant.name.ilike(pattern), Restaurant.neighbourhood.ilike(pattern)))
+
+    if tag == "hidden_gem":
+        stmt = stmt.where(Restaurant.review_count < 200, Restaurant.avg_rating >= 4.5)
+    elif tag == "late_night":
+        stmt = stmt.where(Restaurant.max_closing_hour >= 23)
+
+    if cuisine:
+        from sqlalchemy import or_
+        from sqlalchemy.dialects.postgresql import JSONB
+        stmt = stmt.where(or_(*[Restaurant.cuisine.cast(JSONB).contains([c]) for c in cuisine]))
+
+    result = await db.execute(stmt)
+    candidates = [
+        (r, _haversine_km(lat, lng, float(r.latitude or 0), float(r.longitude or 0)))
+        for r in result.scalars().all()
+        if r.latitude and r.longitude
+    ]
+    candidates = [(r, d) for r, d in candidates if d <= max_distance_km]
+
+    if not candidates:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No restaurants found")
+
+    r, _ = _random.choice(candidates)
+    return _serialize(r, lat, lng)

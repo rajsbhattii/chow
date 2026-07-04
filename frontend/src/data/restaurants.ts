@@ -92,6 +92,24 @@ export async function bookmarkRestaurant(restaurantId: string): Promise<{ saved:
   return data
 }
 
+export async function fetchRandomRestaurant(params: {
+  lat: number; lng: number; maxDistanceKm?: number
+  cuisine?: string; tag?: string; q?: string
+}): Promise<RestaurantDetail> {
+  const p = new URLSearchParams({ lat: String(params.lat), lng: String(params.lng) })
+  if (params.maxDistanceKm) p.set('max_distance_km', String(params.maxDistanceKm))
+  if (params.cuisine) p.set('cuisine', params.cuisine)
+  if (params.tag) p.set('tag', params.tag)
+  if (params.q) p.set('q', params.q)
+  const { data } = await api.get<RestaurantDetail>(`/api/restaurants/random?${p}`)
+  return data
+}
+
+export async function confirmRisk(): Promise<{ gambler_count: number; badge_unlocked: boolean }> {
+  const { data } = await api.post<{ gambler_count: number; badge_unlocked: boolean }>('/api/profile/take-risk')
+  return data
+}
+
 export async function lockInRestaurant(restaurantId: string): Promise<void> {
   await api.post('/api/saves/pick', { restaurant_id: restaurantId })
 }
