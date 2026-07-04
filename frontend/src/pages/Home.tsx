@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TournamentDeck from '../components/TournamentDeck'
 import SwipeCard from '../components/SwipeCard'
-import { bookmarkRestaurant, fetchRestaurants, recordSwipe } from '../data/restaurants'
-import type { RestaurantDetail } from '../data/restaurants'
+import VisitRatingModal from '../components/VisitRatingModal'
+import { bookmarkRestaurant, dismissNudge, fetchNudge, fetchRestaurants, recordSwipe, snoozeNudge } from '../data/restaurants'
+import type { NudgeResponse, RestaurantDetail } from '../data/restaurants'
 import { useAuth } from '../context/AuthContext'
 
 const DEFAULT_LAT = 43.6532
@@ -57,6 +58,10 @@ export default function Home() {
   const [filterCuisine, setFilterCuisine] = useState<string[]>([])
   const [openFilter, setOpenFilter] = useState<'budget' | 'distance' | 'cuisine' | null>(null)
 
+  const [nudge, setNudge] = useState<NudgeResponse['nudge']>(null)
+  const [nudgeShowFollowup, setNudgeShowFollowup] = useState(false)
+  const [visitModalOpen, setVisitModalOpen] = useState(false)
+
   const coords = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
   const locationReady = useRef(false)
 
@@ -80,16 +85,27 @@ export default function Home() {
     }
   }
 
+  async function loadNudge(lat?: number, lng?: number) {
+    try {
+      const res = await fetchNudge(lat, lng)
+      setNudge(res.nudge)
+    } catch {
+      // nudge is non-critical — fail silently
+    }
+  }
+
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       pos => {
         coords.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         locationReady.current = true
         load()
+        loadNudge(pos.coords.latitude, pos.coords.longitude)
       },
       () => {
         locationReady.current = true
         load()
+        loadNudge()
       },
       { timeout: 5000 }
     )
@@ -176,21 +192,102 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Nudge */}
-        <button className="card" style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          padding: '16px 20px', textAlign: 'left', width: '100%',
-          cursor: 'pointer', background: 'var(--surface-warm)', borderColor: 'var(--border-warm)',
-        }}>
-          <span style={{ fontSize: 22 }}>🔔</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>
-              Did you make it to your last save?
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 2 }}>Tap to log your visit</p>
+        {/* Nudge — only shown when there's a pending tournament pick */}
+        {nudge && (
+          <div className="card" style={{
+            padding: '16px 20px', background: 'var(--surface-warm)', borderColor: 'var(--border-warm)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: nudgeShowFollowup ? 12 : 0 }}>
+              <span style={{ fontSize: 22 }}>📍</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>
+                  Did you make it to {nudge.restaurant.name}?
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 2 }}>
+                  {nudge.restaurant.cuisine} · {nudge.restaurant.priceLabel}
+                </p>
+              </div>
+            </div>
+
+            {!nudgeShowFollowup ? (
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => setVisitModalOpen(true)}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'var(--orange)', color: '#fff', border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Yes, I went! ✓
+                </button>
+                <button
+                  onClick={async () => {
+                    if (nudge.isFollowup) {
+                      setNudgeShowFollowup(true)
+                    } else {
+                      await snoozeNudge(nudge.saveId).catch(() => {})
+                      setNudge(null)
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'var(--surface)', color: 'var(--text-3)',
+                    border: '1px solid var(--border)', cursor: 'pointer',
+                  }}
+                >
+                  Not yet
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
+                  Still planning on going?
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={async () => {
+                      await dismissNudge(nudge.saveId).catch(() => {})
+                      setNudge(null)
+                    }}
+                    style={{
+                      flex: 1, padding: '8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: 'var(--surface)', color: 'var(--text-3)',
+                      border: '1px solid var(--border)', cursor: 'pointer',
+                    }}
+                  >
+                    Yeah, still on it
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await dismissNudge(nudge.saveId).catch(() => {})
+                      setNudge(null)
+                    }}
+                    style={{
+                      flex: 1, padding: '8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: 'var(--surface)', color: 'var(--text-3)',
+                      border: '1px solid var(--border)', cursor: 'pointer',
+                    }}
+                  >
+                    Nah
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <ChevronRight size={16} color="var(--border)" />
-        </button>
+        )}
+
+        {visitModalOpen && nudge && (
+          <VisitRatingModal
+            isOpen={visitModalOpen}
+            restaurantId={nudge.restaurant.id}
+            restaurantName={nudge.restaurant.name}
+            onClose={() => setVisitModalOpen(false)}
+            onDone={() => {
+              setVisitModalOpen(false)
+              setNudge(null)
+            }}
+          />
+        )}
 
         {/* Filters */}
         <div>

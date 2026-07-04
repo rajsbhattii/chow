@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +26,11 @@ class Save(UUIDMixin, Base):
     saved_at: Mapped[datetime] = mapped_column(server_default=func.now())
     status: Mapped[str] = mapped_column(String(20), default="want_to_go")
     # want_to_go | been_here
+
+    # Tournament pick nudge tracking
+    picked_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    snoozed_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    nudge_dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     user: Mapped["User"] = relationship(back_populates="saves")
     restaurant: Mapped["Restaurant"] = relationship(back_populates="saves")

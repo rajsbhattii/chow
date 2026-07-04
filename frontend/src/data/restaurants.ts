@@ -64,6 +64,34 @@ export async function bookmarkRestaurant(restaurantId: string): Promise<{ saved:
   return data
 }
 
+export async function lockInRestaurant(restaurantId: string): Promise<void> {
+  await api.post('/api/saves/pick', { restaurant_id: restaurantId })
+}
+
+export interface NudgeResponse {
+  nudge: {
+    saveId: string
+    isFollowup: boolean
+    restaurant: RestaurantDetail
+  } | null
+}
+
+export async function fetchNudge(lat?: number, lng?: number): Promise<NudgeResponse> {
+  const p = new URLSearchParams()
+  if (lat) p.set('lat', String(lat))
+  if (lng) p.set('lng', String(lng))
+  const { data } = await api.get<NudgeResponse>(`/api/saves/nudge?${p}`)
+  return data
+}
+
+export async function snoozeNudge(saveId: string): Promise<void> {
+  await api.post(`/api/saves/${saveId}/snooze`)
+}
+
+export async function dismissNudge(saveId: string): Promise<void> {
+  await api.post(`/api/saves/${saveId}/dismiss-nudge`)
+}
+
 export async function resetSwipeHistory(): Promise<{ cleared: number }> {
   const { data } = await api.delete('/api/swipes/history')
   return data

@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { bookmarkRestaurant, fetchRestaurants, recordSwipe } from '../data/restaurants'
+import { bookmarkRestaurant, fetchRestaurants, lockInRestaurant, recordSwipe } from '../data/restaurants'
 import type { RestaurantDetail } from '../data/restaurants'
 import SwipeCard from './SwipeCard'
 
@@ -36,6 +36,7 @@ export default function TournamentDeck({
   const [nextPool, setNextPool]   = useState<RestaurantDetail[]>([])
   const [results, setResults]     = useState<RestaurantDetail[]>([])
   const [seenIds]                 = useState<Set<string>>(new Set())
+  const [lockedIn, setLockedIn]   = useState(false)
 
   useEffect(() => { startRound(0) }, [])
 
@@ -97,6 +98,13 @@ export default function TournamentDeck({
       setNextPool(shuffled)
       setPhase('between')
     }
+  }
+
+  async function handleLockIn() {
+    if (!results[0]) return
+    setLockedIn(true)
+    lockInRestaurant(results[0].id).catch(() => {})
+    setTimeout(onExit, 1800)
   }
 
   function continueToNextRound() {
@@ -217,44 +225,59 @@ export default function TournamentDeck({
       {/* Results */}
       {phase === 'result' && results.length > 0 && (
         <div>
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <span style={{ fontSize: 32 }}>🏆</span>
-            <p style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--text-1)', marginTop: 6 }}>
-              Tonight's pick
-            </p>
-          </div>
-
-          <ResultCard restaurant={results[0]} rank={1} />
-
-          {results.length > 1 && (
-            <div style={{ marginTop: 10 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                Also great
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {results.slice(1).map((r, i) => (
-                  <ResultCard key={r.id} restaurant={r} rank={i + 2} />
-                ))}
+          {lockedIn ? (
+            <EmptyCard icon="🎯" title={`You're going to ${results[0].name}!`} subtitle="We'll check in with you in a couple days." />
+          ) : (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: 32 }}>🏆</span>
+                <p style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--text-1)', marginTop: 6 }}>
+                  Tonight's pick
+                </p>
               </div>
-            </div>
-          )}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button onClick={() => { seenIds.clear(); startRound(0) }} style={{
-              flex: 1, padding: '11px', borderRadius: 10,
-              background: 'var(--surface)', color: 'var(--text-2)',
-              border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              New tournament
-            </button>
-            <button onClick={onNavigateSaved} style={{
-              flex: 1, padding: '11px', borderRadius: 10,
-              background: 'var(--orange)', color: '#fff',
-              border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            }}>
-              View saved →
-            </button>
-          </div>
+              <ResultCard restaurant={results[0]} rank={1} />
+
+              <button onClick={handleLockIn} style={{
+                width: '100%', marginTop: 10, padding: '13px',
+                borderRadius: 12, background: 'var(--orange)', color: '#fff',
+                border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                letterSpacing: '-0.01em',
+              }}>
+                Lock it in 🎯
+              </button>
+
+              {results.length > 1 && (
+                <div style={{ marginTop: 16 }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    Also great
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {results.slice(1).map((r, i) => (
+                      <ResultCard key={r.id} restaurant={r} rank={i + 2} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button onClick={() => { seenIds.clear(); startRound(0) }} style={{
+                  flex: 1, padding: '11px', borderRadius: 10,
+                  background: 'var(--surface)', color: 'var(--text-2)',
+                  border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>
+                  New tournament
+                </button>
+                <button onClick={onNavigateSaved} style={{
+                  flex: 1, padding: '11px', borderRadius: 10,
+                  background: 'var(--surface)', color: 'var(--text-2)',
+                  border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>
+                  View saved →
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

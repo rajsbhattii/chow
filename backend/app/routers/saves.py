@@ -1,9 +1,10 @@
 import uuid
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,6 +20,10 @@ router = APIRouter(prefix="/api/saves", tags=["saves"])
 
 
 class SaveBody(BaseModel):
+    restaurant_id: uuid.UUID
+
+
+class PickBody(BaseModel):
     restaurant_id: uuid.UUID
 
 
@@ -55,6 +60,131 @@ async def create_save(
     return {"saved": True}
 
 
+@router.post("/pick", status_code=status.HTTP_200_OK)
+async def pick_restaurant(
+    body: PickBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lock in a tournament winner — upserts save and records picked_at."""
+    result = await db.execute(select(Restaurant).where(Restaurant.id == body.restaurant_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Upsert right swipe to exclude from future decks
+    existing_swipe = await db.execute(
+        select(Swipe).where(Swipe.user_id == current_user.id, Swipe.restaurant_id == body.restaurant_id)
+    )
+    swipe = existing_swipe.scalar_one_or_none()
+    if swipe:
+        swipe.direction = "right"
+    else:
+        db.add(Swipe(user_id=current_user.id, restaurant_id=body.restaurant_id, direction="right"))
+
+    # Upsert save and stamp picked_at
+    existing_save = await db.execute(
+        select(Save).where(Save.user_id == current_user.id, Save.restaurant_id == body.restaurant_id)
+    )
+    save = existing_save.scalar_one_or_none()
+    now = datetime.utcnow()
+    if save:
+        save.picked_at = now
+        save.snoozed_until = None
+        save.nudge_dismissed = False
+    else:
+        save = Save(
+            user_id=current_user.id,
+            restaurant_id=body.restaurant_id,
+            status="want_to_go",
+            picked_at=now,
+        )
+        db.add(save)
+
+    await db.commit()
+    return {"picked": True}
+
+
+@router.get("/nudge")
+async def get_nudge(
+    lat: Optional[float] = Query(None),
+    lng: Optional[float] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the single pending nudge for this user, if any."""
+    now = datetime.utcnow()
+    q = (
+        select(Save)
+        .where(
+            Save.user_id == current_user.id,
+            Save.picked_at.is_not(None),
+            Save.status == "want_to_go",
+            Save.nudge_dismissed == False,  # noqa: E712
+            or_(
+                and_(Save.snoozed_until.is_(None), Save.picked_at <= now - timedelta(hours=48)),
+                and_(Save.snoozed_until.is_not(None), Save.snoozed_until <= now),
+            ),
+        )
+        .order_by(Save.picked_at.desc())
+        .limit(1)
+        .options(selectinload(Save.restaurant))
+    )
+    result = await db.execute(q)
+    save = result.scalar_one_or_none()
+
+    if not save or not save.restaurant:
+        return {"nudge": None}
+
+    user_lat = lat or 43.6532
+    user_lng = lng or -79.3832
+
+    return {
+        "nudge": {
+            "saveId": str(save.id),
+            "isFollowup": save.snoozed_until is not None,
+            "restaurant": _serialize(save.restaurant, user_lat, user_lng),
+        }
+    }
+
+
+@router.post("/{save_id}/snooze", status_code=status.HTTP_200_OK)
+async def snooze_nudge(
+    save_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Snooze the nudge for 4 days (first 'Not yet' response)."""
+    result = await db.execute(
+        select(Save).where(Save.id == save_id, Save.user_id == current_user.id)
+    )
+    save = result.scalar_one_or_none()
+    if not save:
+        raise HTTPException(status_code=404, detail="Save not found")
+
+    save.snoozed_until = datetime.utcnow() + timedelta(days=4)
+    await db.commit()
+    return {"snoozed": True}
+
+
+@router.post("/{save_id}/dismiss-nudge", status_code=status.HTTP_200_OK)
+async def dismiss_nudge(
+    save_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently stop nudging for this save (after second 'Not yet')."""
+    result = await db.execute(
+        select(Save).where(Save.id == save_id, Save.user_id == current_user.id)
+    )
+    save = result.scalar_one_or_none()
+    if not save:
+        raise HTTPException(status_code=404, detail="Save not found")
+
+    save.nudge_dismissed = True
+    await db.commit()
+    return {"dismissed": True}
+
+
 @router.get("")
 async def list_saves(
     status: Optional[str] = Query(None),  # want_to_go | been_here | all
@@ -71,7 +201,6 @@ async def list_saves(
     result = await db.execute(q)
     saves = result.scalars().all()
 
-    # Fall back to CN Tower if no location provided
     user_lat = lat or 43.6532
     user_lng = lng or -79.3832
 
