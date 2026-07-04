@@ -1,8 +1,9 @@
 from collections import Counter
 from datetime import datetime, timedelta
+from typing import Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -50,33 +51,40 @@ def _favourite_vibe(visited: list[Restaurant]) -> str | None:
 async def get_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    year: Optional[int] = Query(default=None),
 ):
     uid = current_user.id
 
+    def by_year(stmt, col):
+        return stmt.where(extract("year", col) == year) if year else stmt
+
     visit_count = (await db.execute(
-        select(func.count()).where(Visit.user_id == uid)
+        by_year(select(func.count()).where(Visit.user_id == uid), Visit.visited_at)
     )).scalar() or 0
 
     swipe_count = (await db.execute(
-        select(func.count()).where(Swipe.user_id == uid)
+        by_year(select(func.count()).where(Swipe.user_id == uid), Swipe.swiped_at)
     )).scalar() or 0
 
     save_count = (await db.execute(
-        select(func.count()).where(Save.user_id == uid)
+        by_year(select(func.count()).where(Save.user_id == uid), Save.saved_at)
     )).scalar() or 0
 
     # All visits with their data (for star rating, restaurant join)
     visits_result = await db.execute(
-        select(Visit).where(Visit.user_id == uid)
+        by_year(select(Visit).where(Visit.user_id == uid), Visit.visited_at)
     )
     all_visits = visits_result.scalars().all()
 
     # Visited restaurants with full data
-    visited_result = await db.execute(
+    visited_stmt = (
         select(Restaurant)
         .join(Visit, Visit.restaurant_id == Restaurant.id)
         .where(Visit.user_id == uid)
     )
+    if year:
+        visited_stmt = visited_stmt.where(extract("year", Visit.visited_at) == year)
+    visited_result = await db.execute(visited_stmt)
     visited = visited_result.scalars().all()
 
     # Build lookup: restaurant_id → restaurant

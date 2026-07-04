@@ -54,6 +54,7 @@ export default function Profile() {
   const navigate = useNavigate()
 
   const [stats, setStats] = useState<ProfileStats | null>(null)
+  const [statsYear, setStatsYear] = useState<number | null>(null) // null = all time
 
   // Settings state — seeded from user once loaded
   const [settingsName, setSettingsName]           = useState('')
@@ -67,8 +68,9 @@ export default function Profile() {
   const [saveSuccess, setSaveSuccess]               = useState(false)
 
   useEffect(() => {
-    fetchProfileStats().then(setStats).catch(() => {})
-  }, [])
+    setStats(null)
+    fetchProfileStats(statsYear ?? undefined).then(setStats).catch(() => {})
+  }, [statsYear])
 
   useEffect(() => {
     if (!user) return
@@ -116,7 +118,8 @@ export default function Profile() {
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '?'
 
-  const year = new Date().getFullYear()
+  const currentYear = new Date().getFullYear()
+  const yearTabs: (number | null)[] = [null, currentYear]
   const earnedBadges = new Set(stats?.badges_earned ?? [])
 
   return (
@@ -160,6 +163,29 @@ export default function Profile() {
       </div>
 
       {tab === 'Stats' && (
+        <>
+          {/* Year tabs */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
+            {yearTabs.map(y => {
+              const active = statsYear === y
+              return (
+                <button
+                  key={y ?? 'all'}
+                  onClick={() => setStatsYear(y)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600,
+                    border: active ? '1.5px solid var(--orange)' : '1px solid var(--border)',
+                    background: active ? 'var(--orange)' : 'var(--surface)',
+                    color: active ? '#fff' : 'var(--text-3)',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {y === null ? 'All time' : y}
+                </button>
+              )
+            })}
+          </div>
+
         <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
           {/* Big visits card */}
           <div style={{
@@ -167,7 +193,9 @@ export default function Profile() {
             color: '#fff', width: 220, flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           }}>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Your {year} so far</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+              {statsYear === null ? 'All time' : statsYear === currentYear ? `Your ${currentYear} so far` : `Your ${statsYear}`}
+            </p>
             <div>
               <p style={{
                 fontSize: (() => {
@@ -210,6 +238,7 @@ export default function Profile() {
             ))}
           </div>
         </div>
+        </>
       )}
 
       {tab === 'Badges' && (

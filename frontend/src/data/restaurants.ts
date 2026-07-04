@@ -176,8 +176,9 @@ export interface ProfileStats {
   badges_earned: string[]
 }
 
-export async function fetchProfileStats(): Promise<ProfileStats> {
-  const { data } = await api.get<ProfileStats>('/api/profile/stats')
+export async function fetchProfileStats(year?: number): Promise<ProfileStats> {
+  const p = year ? `?year=${year}` : ''
+  const { data } = await api.get<ProfileStats>(`/api/profile/stats${p}`)
   return data
 }
 
