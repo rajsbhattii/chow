@@ -7,13 +7,22 @@ import type { ProfileStats } from '../data/restaurants'
 const TABS = ['Stats', 'Badges', 'Taste DNA', 'Settings']
 
 const BADGES: { key: string; label: string; emoji: string; desc: string }[] = [
-  { key: 'globe_trotter', label: 'Globe Trotter', emoji: '🌍', desc: 'Try 10 different cuisines' },
-  { key: 'regular',       label: 'Regular',       emoji: '🏠', desc: 'Visit the same spot 5× or more' },
-  { key: 'off_the_map',   label: 'Off the Map',   emoji: '🗺️', desc: 'Visit a restaurant with under 50 reviews' },
-  { key: 'first_in_line', label: 'First In Line', emoji: '🥇', desc: 'Visit a new opening within a week' },
-  { key: 'trendsetter',   label: 'Trendsetter',   emoji: '📈', desc: 'Visit before it hits 4.5 stars' },
-  { key: 'gambler',       label: 'Gambler',        emoji: '🎲', desc: 'Use Take a Risk 10 times' },
-  { key: 'full_send',     label: 'Full Send',      emoji: '🚀', desc: "Visit one you'd normally skip" },
+  { key: 'foodie',              label: 'Foodie',             emoji: '🍴', desc: 'Log 5 visits' },
+  { key: 'critic',              label: 'Critic',             emoji: '📝', desc: 'Log 25 visits' },
+  { key: 'five_star',           label: 'Five Star',          emoji: '⭐', desc: 'Give a restaurant 5 stars' },
+  { key: 'regular',             label: 'Regular',            emoji: '🏠', desc: 'Visit the same spot 5× or more' },
+  { key: 'off_the_map',         label: 'Off the Map',        emoji: '📍', desc: 'Visit a restaurant with under 50 reviews' },
+  { key: 'hidden_gem',          label: 'Hidden Gem',         emoji: '💎', desc: 'Visit a spot with <200 reviews and 4.5+ stars' },
+  { key: 'splurge',             label: 'Splurge',            emoji: '💸', desc: 'Visit a $$$$ restaurant' },
+  { key: 'cheap_eats',          label: 'Cheap Eats',         emoji: '🪙', desc: 'Visit 3 restaurants under $' },
+  { key: 'neighbourhood_hopper',label: 'Hood Hopper',        emoji: '🗺️', desc: 'Visit restaurants in 3+ neighbourhoods' },
+  { key: 'adventurous_eater',   label: 'Adventurous Eater', emoji: '🌶️', desc: 'Visit an Ethiopian, Vietnamese, Thai, or fusion spot' },
+  { key: 'brunch_club',         label: 'Brunch Club',        emoji: '🥂', desc: 'Visit a brunch restaurant' },
+  { key: 'date_night_pro',      label: 'Date Night Pro',     emoji: '🕯️', desc: 'Visit 3 date night restaurants' },
+  { key: 'globe_trotter',       label: 'Globe Trotter',      emoji: '🌍', desc: 'Try 10 different cuisines' },
+  { key: 'first_in_line',       label: 'First In Line',      emoji: '🥇', desc: 'Visit a new restaurant within a week of it opening' },
+  { key: 'trendsetter',         label: 'Trendsetter',        emoji: '📈', desc: 'Visit before it hits 4.5 stars' },
+  { key: 'gambler',             label: 'Gambler',            emoji: '🎲', desc: 'Use Take a Risk 10 times' },
 ]
 
 const ADVENTURE_LABELS: Record<string, string> = {

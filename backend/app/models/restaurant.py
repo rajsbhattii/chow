@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, UUIDMixin
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.save import Save
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from app.models.visit import Visit
 
 
-class Restaurant(UUIDMixin, Base):
+class Restaurant(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "restaurants"
 
     name: Mapped[str] = mapped_column(String(255))
