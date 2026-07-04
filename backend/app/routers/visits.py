@@ -28,6 +28,17 @@ async def _check_badges(user_id: uuid.UUID, restaurant: Restaurant, db: AsyncSes
     if restaurant.review_count and restaurant.review_count < 50:
         badges.append("off_the_map")
 
+    # Trendsetter: visited when rating was below 4.5, now it's 4.5+
+    trendsetter_result = await db.execute(
+        select(Visit).where(
+            Visit.user_id == user_id,
+            Visit.restaurant_id == restaurant.id,
+            Visit.rating_at_visit < 4.5,
+        ).limit(1)
+    )
+    if trendsetter_result.scalar_one_or_none() and (restaurant.avg_rating or 0) >= 4.5:
+        badges.append("trendsetter")
+
     # Regular: visited same restaurant 5+ times
     count_result = await db.execute(
         select(func.count()).where(
@@ -77,6 +88,7 @@ async def record_visit(
         restaurant_id=body.restaurant_id,
         star_rating=body.star_rating,
         would_return=body.would_return,
+        rating_at_visit=restaurant.avg_rating,
     )
     db.add(visit)
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, func
+from sqlalchemy import ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,7 @@ class Visit(UUIDMixin, Base):
     visited_at: Mapped[datetime] = mapped_column(server_default=func.now())
     star_rating: Mapped[int | None] = mapped_column(nullable=True)  # 1–5
     would_return: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    rating_at_visit: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
     # definitely | maybe | no
 
     user: Mapped["User"] = relationship(back_populates="visits")

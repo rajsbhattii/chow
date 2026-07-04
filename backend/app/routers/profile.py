@@ -172,6 +172,13 @@ async def get_stats(
             badges.append("first_in_line")
             break
 
+    # Trendsetter — visited when rating was below 4.5, restaurant now sits at 4.5+
+    for v in all_visits:
+        r = restaurant_map.get(v.restaurant_id)
+        if r and v.rating_at_visit is not None and float(v.rating_at_visit) < 4.5 and r.avg_rating and float(r.avg_rating) >= 4.5:
+            badges.append("trendsetter")
+            break
+
     return {
         "visits": visit_count,
         "swipes": swipe_count,
