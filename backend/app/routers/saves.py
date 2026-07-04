@@ -47,11 +47,13 @@ async def create_save(
     else:
         db.add(Swipe(user_id=current_user.id, restaurant_id=body.restaurant_id, direction="right"))
 
-    # Create save if not already saved
+    # Toggle: delete if already saved, create if not
     existing_save = await db.execute(
         select(Save).where(Save.user_id == current_user.id, Save.restaurant_id == body.restaurant_id)
     )
-    if existing_save.scalar_one_or_none():
+    save = existing_save.scalar_one_or_none()
+    if save:
+        await db.delete(save)
         await db.commit()
         return {"saved": False}
 

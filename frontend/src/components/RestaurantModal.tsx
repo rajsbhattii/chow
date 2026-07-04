@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ExternalLink, Heart, MapPin, Star, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { bookmarkRestaurant } from '../data/restaurants'
 import type { RestaurantDetail } from '../data/restaurants'
 
 interface Props {
@@ -11,11 +12,27 @@ interface Props {
 }
 
 export default function RestaurantModal({ isOpen, restaurant, onClose }: Props) {
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { if (isOpen) setSaved(false) }, [isOpen, restaurant.id])
+
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
+
+  async function handleSave() {
+    if (saving) return
+    setSaving(true)
+    try {
+      const res = await bookmarkRestaurant(restaurant.id)
+      setSaved(res.saved)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return createPortal(
     <AnimatePresence>
@@ -173,12 +190,21 @@ export default function RestaurantModal({ isOpen, restaurant, onClose }: Props) 
 
                   {/* CTAs */}
                   <div style={{ display: 'flex', gap: 10, marginTop: 28 }}>
-                    <button style={{
-                      flex: 1, padding: '13px', borderRadius: 12, background: 'var(--orange)',
-                      color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    }}>
-                      <Heart size={15} fill="#fff" /> Save
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      style={{
+                        flex: 1, padding: '13px', borderRadius: 12,
+                        background: saved ? 'var(--surface-2)' : 'var(--orange)',
+                        color: saved ? 'var(--orange)' : '#fff',
+                        border: saved ? '1px solid var(--orange)' : 'none',
+                        fontSize: 14, fontWeight: 700, cursor: saving ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                        opacity: saving ? 0.7 : 1, transition: 'all 0.2s',
+                      }}
+                    >
+                      <Heart size={15} fill={saved ? 'var(--orange)' : '#fff'} />
+                      {saving ? '…' : saved ? 'Saved ✓' : 'Save'}
                     </button>
                     <button
                       onClick={onClose}
