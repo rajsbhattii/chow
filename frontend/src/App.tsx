@@ -7,6 +7,8 @@ import Welcome from './pages/auth/Welcome'
 import Login from './pages/auth/Login'
 import Onboarding from './pages/auth/Onboarding'
 import Signup from './pages/auth/Signup'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 import Explore from './pages/Explore'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
@@ -23,6 +25,8 @@ export default function App() {
             <Route path="/" element={<Welcome />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Semi-protected: onboarding requires auth but not active status */}
             <Route element={<ProtectedRoute />}>

@@ -1,5 +1,10 @@
+import hashlib
+import os
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
 
+import resend
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
@@ -13,10 +18,12 @@ from app.auth import (
     hash_password,
     verify_password,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.config import settings
 from app.database import get_db
+from app.models.password_reset import PasswordReset
 from app.models.user import User
+
+resend.api_key = settings.RESEND_API_KEY
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -199,3 +206,80 @@ async def onboarding(
     await db.refresh(current_user)
 
     return _user_dict(current_user)
+
+
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    # Always return 200 — never reveal whether the email exists
+    if not user:
+        return {"ok": True}
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    reset = PasswordReset(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+    )
+    db.add(reset)
+    await db.commit()
+
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
+
+    resend.Emails.send({
+        "from": "onboarding@resend.dev",
+        "to": user.email,
+        "subject": "Reset your Chow password",
+        "html": f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+          <h2 style="margin:0 0 8px">Reset your password</h2>
+          <p style="color:#555;margin:0 0 24px">Click the button below to set a new password. This link expires in 1 hour.</p>
+          <a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#ff5a1f;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
+            Reset password
+          </a>
+          <p style="color:#999;font-size:12px;margin-top:24px">If you didn't request this, you can safely ignore this email.</p>
+        </div>
+        """,
+    })
+
+    return {"ok": True}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get_db)):
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+
+    result = await db.execute(
+        select(PasswordReset).where(
+            PasswordReset.token_hash == token_hash,
+            PasswordReset.used == False,  # noqa: E712
+            PasswordReset.expires_at > datetime.utcnow(),
+        )
+    )
+    reset = result.scalar_one_or_none()
+    if not reset:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user_result = await db.execute(select(User).where(User.id == reset.user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.password_hash = hash_password(body.password)
+    reset.used = True
+    await db.commit()
+
+    return {"ok": True}

@@ -62,9 +62,9 @@ export default function Login() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Password</label>
-              <button type="button" style={{ fontSize: 12, color: 'var(--orange)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--orange)', fontWeight: 500, textDecoration: 'none' }}>
                 Forgot password?
-              </button>
+              </Link>
             </div>
             <input
               type="password" required value={password}
