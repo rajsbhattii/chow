@@ -137,6 +137,22 @@ export interface VisitResponse {
   badgesUnlocked: string[]
 }
 
+export interface ProfileStats {
+  visits: number
+  swipes: number
+  saves: number
+  cuisines_tried: number
+  favourite_cuisine: string | null
+  favourite_vibe: string | null
+  adventure_score: 'comfort_zone' | 'open_minded' | 'adventurous' | 'full_send' | null
+  badges_earned: string[]
+}
+
+export async function fetchProfileStats(): Promise<ProfileStats> {
+  const { data } = await api.get<ProfileStats>('/api/profile/stats')
+  return data
+}
+
 export async function recordVisit(
   restaurantId: string,
   starRating: number,

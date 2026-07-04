@@ -1,30 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { fetchProfileStats } from '../data/restaurants'
+import type { ProfileStats } from '../data/restaurants'
 
 const TABS = ['Stats', 'Badges', 'Taste DNA', 'Settings']
 
-const BADGES = [
-  { label: 'Globe Trotter', emoji: '🌍', desc: 'Try 10 cuisines' },
-  { label: 'Gambler', emoji: '🎲', desc: 'Use Take a Risk 10×' },
-  { label: 'Trendsetter', emoji: '📈', desc: 'Visit before 4.5 stars' },
-  { label: 'Regular', emoji: '🏠', desc: 'Visit same spot 5×' },
-  { label: 'First In Line', emoji: '🥇', desc: 'Visit new opening in a week' },
-  { label: 'Off the Map', emoji: '🗺️', desc: '<50 reviews' },
-  { label: 'Full Send', emoji: '🚀', desc: "Visit one you'd normally skip" },
+const BADGES: { key: string; label: string; emoji: string; desc: string }[] = [
+  { key: 'globe_trotter', label: 'Globe Trotter', emoji: '🌍', desc: 'Try 10 different cuisines' },
+  { key: 'regular',       label: 'Regular',       emoji: '🏠', desc: 'Visit the same spot 5× or more' },
+  { key: 'off_the_map',   label: 'Off the Map',   emoji: '🗺️', desc: 'Visit a restaurant with under 50 reviews' },
+  { key: 'first_in_line', label: 'First In Line', emoji: '🥇', desc: 'Visit a new opening within a week' },
+  { key: 'trendsetter',   label: 'Trendsetter',   emoji: '📈', desc: 'Visit before it hits 4.5 stars' },
+  { key: 'gambler',       label: 'Gambler',        emoji: '🎲', desc: 'Use Take a Risk 10 times' },
+  { key: 'full_send',     label: 'Full Send',      emoji: '🚀', desc: "Visit one you'd normally skip" },
 ]
 
 const ADVENTURE_LABELS: Record<string, string> = {
   comfort_zone: '🏠 Comfort zone',
-  open_minded: '🚶 Open-minded',
-  adventurous: '🧭 Adventurous',
-  full_send: '🚀 Full send',
+  open_minded:  '🚶 Open-minded',
+  adventurous:  '🧭 Adventurous',
+  full_send:    '🚀 Full send',
 }
 
 export default function Profile() {
   const [tab, setTab] = useState('Stats')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  const [stats, setStats] = useState<ProfileStats | null>(null)
+
+  useEffect(() => {
+    fetchProfileStats().then(setStats).catch(() => {})
+  }, [])
 
   function handleSignOut() {
     logout()
@@ -35,6 +43,9 @@ export default function Profile() {
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '?'
 
+  const year = new Date().getFullYear()
+  const earnedBadges = new Set(stats?.badges_earned ?? [])
+
   return (
     <div className="page">
       {/* Header */}
@@ -42,8 +53,7 @@ export default function Profile() {
         <div style={{
           width: 60, height: 60, borderRadius: '50%',
           background: 'var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em',
-          flexShrink: 0,
+          fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', flexShrink: 0,
         }}>
           {initials}
         </div>
@@ -78,26 +88,50 @@ export default function Profile() {
 
       {tab === 'Stats' && (
         <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+          {/* Big visits card */}
           <div style={{
             background: 'var(--surface-inverse)', borderRadius: 16, padding: '32px 28px',
             color: '#fff', width: 220, flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           }}>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Your 2025 so far</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Your {year} so far</p>
             <div>
-              <p style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, color: '#fff' }}>0</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>restaurants visited</p>
+              <p style={{
+                fontSize: (() => {
+                  const v = String(stats?.visits ?? '—')
+                  if (v.length <= 1) return 96
+                  if (v.length === 2) return 80
+                  if (v.length === 3) return 64
+                  return 48
+                })(),
+                fontWeight: 900, lineHeight: 1, color: '#fff', transition: 'font-size 0.2s ease',
+              }}>
+                {stats?.visits ?? '—'}
+              </p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>
+                restaurants visited
+              </p>
             </div>
           </div>
+
+          {/* Stat grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, flex: 1 }}>
             {[
-              { label: 'Total swipes', value: '0' },
-              { label: 'Restaurants saved', value: '0' },
-              { label: 'Cuisines tried', value: '0' },
-              { label: 'Adventure score', value: '—' },
+              { label: 'Total swipes',       value: stats?.swipes          ?? '—' },
+              { label: 'Restaurants saved',  value: stats?.saves            ?? '—' },
+              { label: 'Cuisines tried',     value: stats?.cuisines_tried   ?? '—' },
+              { label: 'Adventure score',    value: stats?.adventure_score ? ADVENTURE_LABELS[stats.adventure_score] : '—' },
+              { label: 'Favourite cuisine',  value: stats?.favourite_cuisine ?? '—' },
+              { label: 'Favourite vibe',     value: stats?.favourite_vibe    ?? '—' },
             ].map(({ label, value }) => (
               <div key={label} className="card" style={{ padding: '24px 22px' }}>
-                <p style={{ fontSize: 36, fontWeight: 900, color: 'var(--text-1)', letterSpacing: '-0.03em' }}>{value}</p>
+                <p style={{
+                  fontSize: typeof value === 'string' && value.length > 6 ? 18 : 36,
+                  fontWeight: 900, color: 'var(--text-1)', letterSpacing: '-0.03em',
+                  lineHeight: 1.2,
+                }}>
+                  {value}
+                </p>
                 <p style={{ fontSize: 13, color: 'var(--text-4)', marginTop: 4 }}>{label}</p>
               </div>
             ))}
@@ -107,16 +141,35 @@ export default function Profile() {
 
       {tab === 'Badges' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          {BADGES.map(({ label, emoji, desc }) => (
-            <div key={label} className="card" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-              padding: '28px 16px', textAlign: 'center', opacity: 0.35,
-            }}>
-              <span style={{ fontSize: 36 }}>{emoji}</span>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-4)', lineHeight: 1.4 }}>{desc}</p>
-            </div>
-          ))}
+          {BADGES.map(({ key, label, emoji, desc }) => {
+            const earned = earnedBadges.has(key)
+            return (
+              <div
+                key={key}
+                className="card"
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  padding: '28px 16px', textAlign: 'center',
+                  opacity: earned ? 1 : 0.35,
+                  borderColor: earned ? 'var(--orange)' : 'var(--border)',
+                  position: 'relative',
+                }}
+              >
+                {earned && (
+                  <div style={{
+                    position: 'absolute', top: 10, right: 10,
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: 'var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{ fontSize: 10, color: '#fff', fontWeight: 800 }}>✓</span>
+                  </div>
+                )}
+                <span style={{ fontSize: 36 }}>{emoji}</span>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-4)', lineHeight: 1.4 }}>{desc}</p>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -133,8 +186,6 @@ export default function Profile() {
 
       {tab === 'Settings' && (
         <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-          {/* Account info */}
           <div style={{ marginBottom: 8 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 16px 8px' }}>
               Account
@@ -146,7 +197,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Preferences */}
           <div style={{ marginBottom: 8 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 16px 8px' }}>
               Preferences
@@ -158,21 +208,14 @@ export default function Profile() {
               <div style={{ height: 1, background: 'var(--border)' }} />
               <Row label="Transport" value={user?.transport_modes?.join(', ') || '—'} />
               <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Adventure level" value={user?.adventure_level ? ADVENTURE_LABELS[user.adventure_level] : '—'} />
+              <Row label="Adventure level" value={user?.adventure_level ? ADVENTURE_LABELS[user.adventure_level] ?? '—' : '—'} />
               <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row
-                label="Cuisines"
-                value={user?.cuisine_preferences?.length ? user.cuisine_preferences.join(', ') : '—'}
-              />
+              <Row label="Cuisines" value={user?.cuisine_preferences?.length ? user.cuisine_preferences.join(', ') : '—'} />
               <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row
-                label="Dietary needs"
-                value={user?.dietary_needs?.length ? user.dietary_needs.join(', ') : 'None'}
-              />
+              <Row label="Dietary needs" value={user?.dietary_needs?.length ? user.dietary_needs.join(', ') : 'None'} />
             </div>
           </div>
 
-          {/* Sign out */}
           <button
             onClick={handleSignOut}
             style={{

@@ -28,7 +28,7 @@ const DISTANCE_OPTIONS = [
   { label: 'Any distance', value: 25 },
 ]
 const CUISINE_OPTIONS = [
-  'American', 'Brunch', 'Chinese', 'Ethiopian', 'French',
+  'American', 'Brunch', 'Chinese', 'Ethiopian', 'French', 'Greek',
   'Indian', 'Italian', 'Japanese', 'Korean', 'Mediterranean',
   'Mexican', 'Middle Eastern', 'Seafood', 'Thai', 'Vietnamese',
 ]
