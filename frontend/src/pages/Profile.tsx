@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { fetchProfileStats } from '../data/restaurants'
 import type { ProfileStats } from '../data/restaurants'
+import api from '../lib/api'
 
 const TABS = ['Stats', 'Badges', 'Taste DNA', 'Settings']
 
@@ -32,16 +33,79 @@ const ADVENTURE_LABELS: Record<string, string> = {
   full_send:    '🚀 Full send',
 }
 
+const CUISINES = [
+  'Italian', 'Japanese', 'Mexican', 'Indian', 'Chinese',
+  'Thai', 'Mediterranean', 'American', 'Korean', 'Ethiopian',
+  'French', 'Greek', 'Middle Eastern', 'Vietnamese',
+]
+const BUDGETS = ['$', '$$', '$$$', '$$$$']
+const TRANSPORT = ['Walk', 'Transit', 'Drive']
+const DIETARY = ['Vegetarian', 'Vegan', 'Gluten-free', 'Halal', 'Kosher', 'Nut-free', 'Pescatarian']
+const ADVENTURE_LEVELS = [
+  { value: 'comfort_zone', emoji: '🏠', label: 'Comfort zone',  desc: 'I know what I like' },
+  { value: 'open_minded',  emoji: '🚶', label: 'Open-minded',   desc: 'New things if well-reviewed' },
+  { value: 'adventurous',  emoji: '🧭', label: 'Adventurous',   desc: "Surprise me, I'm here for it" },
+  { value: 'full_send',    emoji: '🚀', label: 'Full send',     desc: "I want things I've never heard of" },
+]
+
 export default function Profile() {
   const [tab, setTab] = useState('Stats')
-  const { user, logout } = useAuth()
+  const { user, logout, updateUser } = useAuth()
   const navigate = useNavigate()
 
   const [stats, setStats] = useState<ProfileStats | null>(null)
 
+  // Settings state — seeded from user once loaded
+  const [settingsName, setSettingsName]           = useState('')
+  const [settingsCuisines, setSettingsCuisines]   = useState<string[]>([])
+  const [settingsBudget, setSettingsBudget]         = useState('$$')
+  const [settingsDistance, setSettingsDistance]     = useState(10)
+  const [settingsTransport, setSettingsTransport]   = useState<string[]>([])
+  const [settingsAdventure, setSettingsAdventure]   = useState('open_minded')
+  const [settingsDietary, setSettingsDietary]       = useState<string[]>([])
+  const [saving, setSaving]                         = useState(false)
+  const [saveSuccess, setSaveSuccess]               = useState(false)
+
   useEffect(() => {
     fetchProfileStats().then(setStats).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    setSettingsName(user.name ?? '')
+    setSettingsCuisines(user.cuisine_preferences ?? [])
+    setSettingsBudget(user.budget_range ?? '$$')
+    setSettingsDistance(user.max_distance ?? 10)
+    setSettingsTransport(user.transport_modes ?? [])
+    setSettingsAdventure(user.adventure_level ?? 'open_minded')
+    setSettingsDietary(user.dietary_needs ?? [])
+  }, [user])
+
+  async function saveSettings() {
+    setSaving(true)
+    try {
+      const { data } = await api.patch('/api/auth/me', {
+        name: settingsName,
+        cuisine_preferences: settingsCuisines,
+        budget_range: settingsBudget,
+        max_distance_km: settingsDistance,
+        transport_modes: settingsTransport,
+        adventure_level: settingsAdventure,
+        dietary_needs: settingsDietary,
+      })
+      updateUser(data)
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch {
+      // silently ignore for now
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleList<T>(list: T[], setList: (v: T[]) => void, item: T) {
+    setList(list.includes(item) ? list.filter(x => x !== item) : [...list, item])
+  }
 
   function handleSignOut() {
     logout()
@@ -194,58 +258,171 @@ export default function Profile() {
       )}
 
       {tab === 'Settings' && (
-        <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ marginBottom: 8 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 16px 8px' }}>
-              Account
-            </p>
-            <div className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Row label="Name" value={user?.name ?? '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Email" value={user?.email ?? '—'} />
-            </div>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          <div style={{ marginBottom: 8 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 16px 8px' }}>
-              Preferences
-            </p>
-            <div className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Row label="Budget" value={user?.budget_range ?? '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Max distance" value={user?.max_distance ? `${user.max_distance} km` : '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Transport" value={user?.transport_modes?.join(', ') || '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Adventure level" value={user?.adventure_level ? ADVENTURE_LABELS[user.adventure_level] ?? '—' : '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Cuisines" value={user?.cuisine_preferences?.length ? user.cuisine_preferences.join(', ') : '—'} />
-              <div style={{ height: 1, background: 'var(--border)' }} />
-              <Row label="Dietary needs" value={user?.dietary_needs?.length ? user.dietary_needs.join(', ') : 'None'} />
+          {/* Account */}
+          <Section label="Account">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-4)', marginBottom: 6 }}>Name</p>
+                <input
+                  value={settingsName}
+                  onChange={e => setSettingsName(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14,
+                    border: '1px solid var(--border)', background: 'var(--bg)',
+                    color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-4)', marginBottom: 6 }}>Email</p>
+                <p style={{ fontSize: 14, color: 'var(--text-3)', padding: '10px 0' }}>{user?.email ?? '—'}</p>
+              </div>
             </div>
-          </div>
+          </Section>
 
-          <button
-            onClick={handleSignOut}
-            style={{
-              marginTop: 12, padding: '12px 16px', borderRadius: 12,
-              background: 'none', border: 'none', textAlign: 'left',
-              fontSize: 14, fontWeight: 600, color: '#ef4444', cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
+          {/* Cuisines */}
+          <Section label="Cuisines you love">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {CUISINES.map(c => (
+                <Chip key={c} label={c} active={settingsCuisines.includes(c)}
+                  onClick={() => toggleList(settingsCuisines, setSettingsCuisines, c)} />
+              ))}
+            </div>
+          </Section>
+
+          {/* Budget */}
+          <Section label="Budget">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {BUDGETS.map(b => (
+                <button key={b} onClick={() => setSettingsBudget(b)} style={{
+                  flex: 1, padding: '10px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                  border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+                  background: settingsBudget === b ? 'var(--orange)' : 'var(--surface)',
+                  borderColor: settingsBudget === b ? 'var(--orange)' : 'var(--border)',
+                  color: settingsBudget === b ? '#fff' : 'var(--text-2)',
+                }}>{b}</button>
+              ))}
+            </div>
+          </Section>
+
+          {/* Distance */}
+          <Section label={`Max distance · ${settingsDistance} km`}>
+            <input type="range" min={1} max={25} value={settingsDistance}
+              onChange={e => setSettingsDistance(Number(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--orange)' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-4)' }}>1 km</span>
+              <span style={{ fontSize: 11, color: 'var(--text-4)' }}>25 km</span>
+            </div>
+          </Section>
+
+          {/* Transport */}
+          <Section label="How you get around">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {TRANSPORT.map(t => (
+                <button key={t} onClick={() => toggleList(settingsTransport, setSettingsTransport, t)} style={{
+                  flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+                  background: settingsTransport.includes(t) ? 'var(--orange)' : 'var(--surface)',
+                  borderColor: settingsTransport.includes(t) ? 'var(--orange)' : 'var(--border)',
+                  color: settingsTransport.includes(t) ? '#fff' : 'var(--text-2)',
+                }}>{t}</button>
+              ))}
+            </div>
+          </Section>
+
+          {/* Adventure level */}
+          <Section label="Vibe">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {ADVENTURE_LEVELS.map(({ value, emoji, label, desc }) => (
+                <button key={value} onClick={() => setSettingsAdventure(value)} className="card"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', textAlign: 'left',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    borderColor: settingsAdventure === value ? 'var(--orange)' : 'var(--border)',
+                    background: settingsAdventure === value ? 'var(--surface-warm)' : 'var(--surface)',
+                  }}
+                >
+                  <span style={{ fontSize: 22 }}>{emoji}</span>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 1 }}>{desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          {/* Dietary */}
+          <Section label="Dietary needs">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {DIETARY.map(d => (
+                <Chip key={d} label={d} active={settingsDietary.includes(d)}
+                  onClick={() => toggleList(settingsDietary, setSettingsDietary, d)} />
+              ))}
+            </div>
+          </Section>
+
+          {/* Save + sign out */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 32 }}>
+            <button
+              onClick={saveSettings}
+              disabled={saving}
+              style={{
+                width: '100%', padding: '13px', borderRadius: 12,
+                background: saveSuccess ? '#22c55e' : 'var(--orange)',
+                color: '#fff', border: 'none', fontSize: 14, fontWeight: 700,
+                cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1,
+                transition: 'background 0.2s',
+              }}
+            >
+              {saving ? 'Saving…' : saveSuccess ? 'Saved ✓' : 'Save changes'}
+            </button>
+            <button
+              onClick={handleSignOut}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 12,
+                background: 'none', border: '1px solid var(--border)',
+                fontSize: 14, fontWeight: 600, color: '#ef4444', cursor: 'pointer',
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-      <span style={{ fontSize: 14, color: 'var(--text-3)', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', textAlign: 'right' }}>{value}</span>
+    <div>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+        {label}
+      </p>
+      <div className="card" style={{ padding: '16px 18px' }}>
+        {children}
+      </div>
     </div>
+  )
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '6px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
+        border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+        background: active ? 'var(--orange)' : 'var(--surface)',
+        borderColor: active ? 'var(--orange)' : 'var(--border)',
+        color: active ? '#fff' : 'var(--text-2)',
+      }}
+    >
+      {label}
+    </button>
   )
 }

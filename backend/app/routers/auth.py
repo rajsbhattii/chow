@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
@@ -11,6 +13,8 @@ from app.auth import (
     hash_password,
     verify_password,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
 from app.models.user import User
 
@@ -52,6 +56,16 @@ class OnboardingBody(BaseModel):
     transport_modes: list[str] = []
     adventure_level: str = "open_minded"
     dietary_needs: list[str] = []
+
+
+class UpdateMeBody(BaseModel):
+    name: Optional[str] = None
+    cuisine_preferences: Optional[list[str]] = None
+    budget_range: Optional[str] = None
+    max_distance_km: Optional[int] = None
+    transport_modes: Optional[list[str]] = None
+    adventure_level: Optional[str] = None
+    dietary_needs: Optional[list[str]] = None
 
 
 def _user_dict(user: User) -> dict:
@@ -136,6 +150,33 @@ async def refresh_token(body: RefreshBody, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user)):
+    return _user_dict(current_user)
+
+
+@router.patch("/me")
+async def update_me(
+    body: UpdateMeBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.name is not None:
+        current_user.name = body.name
+    if body.cuisine_preferences is not None:
+        current_user.cuisine_preferences = body.cuisine_preferences
+    if body.budget_range is not None:
+        current_user.budget_range = body.budget_range
+    if body.max_distance_km is not None:
+        current_user.max_distance = body.max_distance_km
+    if body.transport_modes is not None:
+        current_user.transport_modes = body.transport_modes
+    if body.adventure_level is not None:
+        current_user.adventure_level = body.adventure_level
+    if body.dietary_needs is not None:
+        current_user.dietary_needs = body.dietary_needs
+
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
     return _user_dict(current_user)
 
 
