@@ -70,6 +70,25 @@ export default function Profile() {
   const [saving, setSaving]                         = useState(false)
   const [saveSuccess, setSaveSuccess]               = useState(false)
 
+  // Change email state
+  const [newEmail, setNewEmail]                     = useState('')
+  const [emailPassword, setEmailPassword]           = useState('')
+  const [emailError, setEmailError]                 = useState('')
+  const [emailSuccess, setEmailSuccess]             = useState(false)
+  const [savingEmail, setSavingEmail]               = useState(false)
+
+  // Change password state
+  const [currentPw, setCurrentPw]                   = useState('')
+  const [newPw, setNewPw]                           = useState('')
+  const [confirmPw, setConfirmPw]                   = useState('')
+  const [pwError, setPwError]                       = useState('')
+  const [pwSuccess, setPwSuccess]                   = useState(false)
+  const [savingPw, setSavingPw]                     = useState(false)
+
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false)
+  const [deleting, setDeleting]                     = useState(false)
+
   useEffect(() => {
     setStats(null)
     fetchProfileStats(statsYear ?? undefined).then(setStats).catch(() => {})
@@ -122,6 +141,56 @@ export default function Profile() {
   function handleSignOut() {
     logout()
     navigate('/', { replace: true })
+  }
+
+  async function handleChangeEmail(e: React.FormEvent) {
+    e.preventDefault()
+    setEmailError('')
+    setSavingEmail(true)
+    try {
+      await api.patch('/api/auth/me/email', { email: newEmail, current_password: emailPassword })
+      updateUser({ ...user!, email: newEmail })
+      setEmailSuccess(true)
+      setNewEmail('')
+      setEmailPassword('')
+      setTimeout(() => setEmailSuccess(false), 3000)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setEmailError(msg || 'Failed to update email.')
+    } finally {
+      setSavingEmail(false)
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setPwError('')
+    if (newPw !== confirmPw) { setPwError('Passwords do not match.'); return }
+    if (newPw.length < 8) { setPwError('Password must be at least 8 characters.'); return }
+    setSavingPw(true)
+    try {
+      await api.patch('/api/auth/me/password', { current_password: currentPw, new_password: newPw })
+      setPwSuccess(true)
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setTimeout(() => setPwSuccess(false), 3000)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPwError(msg || 'Failed to update password.')
+    } finally {
+      setSavingPw(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    try {
+      await api.delete('/api/auth/me')
+      logout()
+      navigate('/', { replace: true })
+    } catch {
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   const initials = user?.name
@@ -421,6 +490,56 @@ export default function Profile() {
             </div>
           </Section>
 
+          {/* Change email */}
+          <Section label="Change email">
+            <form onSubmit={handleChangeEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-4)', marginBottom: 6 }}>New email</p>
+                <input type="email" required value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                  placeholder={user?.email ?? 'Current email'}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-4)', marginBottom: 6 }}>Current password</p>
+                <input type="password" required value={emailPassword} onChange={e => setEmailPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              {emailError && <p style={{ fontSize: 13, color: '#ef4444' }}>{emailError}</p>}
+              <button type="submit" disabled={savingEmail} style={{
+                padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                background: emailSuccess ? '#22c55e' : 'var(--orange)', color: '#fff', opacity: savingEmail ? 0.7 : 1,
+              }}>
+                {savingEmail ? 'Saving…' : emailSuccess ? 'Updated ✓' : 'Update email'}
+              </button>
+            </form>
+          </Section>
+
+          {/* Change password */}
+          <Section label="Change password">
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {(['Current password', 'New password', 'Confirm new password'] as const).map((label, i) => {
+                const val = [currentPw, newPw, confirmPw][i]
+                const set = [setCurrentPw, setNewPw, setConfirmPw][i]
+                return (
+                  <div key={label}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-4)', marginBottom: 6 }}>{label}</p>
+                    <input type="password" required value={val} onChange={e => set(e.target.value)}
+                      placeholder="••••••••"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                )
+              })}
+              {pwError && <p style={{ fontSize: 13, color: '#ef4444' }}>{pwError}</p>}
+              <button type="submit" disabled={savingPw} style={{
+                padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                background: pwSuccess ? '#22c55e' : 'var(--orange)', color: '#fff', opacity: savingPw ? 0.7 : 1,
+              }}>
+                {savingPw ? 'Saving…' : pwSuccess ? 'Updated ✓' : 'Update password'}
+              </button>
+            </form>
+          </Section>
+
           {/* Cuisines */}
           <Section label="Cuisines you love">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -529,6 +648,48 @@ export default function Profile() {
             >
               Sign out
             </button>
+
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 12,
+                  background: 'none', border: 'none',
+                  fontSize: 13, fontWeight: 500, color: 'var(--text-4)', cursor: 'pointer',
+                }}
+              >
+                Delete account
+              </button>
+            ) : (
+              <div className="card" style={{ padding: '18px', borderColor: '#fecaca', background: '#fef2f2' }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>Delete account?</p>
+                <p style={{ fontSize: 13, color: '#7f1d1d', marginBottom: 14, lineHeight: 1.5 }}>
+                  This permanently deletes your account, saves, visits, and all data. This cannot be undone.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                      background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer',
+                      opacity: deleting ? 0.7 : 1,
+                    }}
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete'}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: 'none', border: '1px solid var(--border)', color: 'var(--text-2)', cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

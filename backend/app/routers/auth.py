@@ -75,6 +75,16 @@ class UpdateMeBody(BaseModel):
     dietary_needs: Optional[list[str]] = None
 
 
+class ChangeEmailBody(BaseModel):
+    email: EmailStr
+    current_password: str
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str
+    new_password: str
+
+
 def _user_dict(user: User) -> dict:
     return {
         "id": str(user.id),
@@ -185,6 +195,47 @@ async def update_me(
     await db.commit()
     await db.refresh(current_user)
     return _user_dict(current_user)
+
+
+@router.patch("/me/email")
+async def change_email(
+    body: ChangeEmailBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not current_user.password_hash or not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already in use")
+    current_user.email = body.email
+    await db.commit()
+    return {"ok": True}
+
+
+@router.patch("/me/password")
+async def change_password(
+    body: ChangePasswordBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not current_user.password_hash or not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    current_user.password_hash = hash_password(body.new_password)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/me")
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await db.delete(current_user)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/onboarding")
