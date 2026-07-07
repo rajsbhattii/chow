@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import GoogleButton from '../../components/GoogleButton'
 import api from '../../lib/api'
 
 const inputStyle: React.CSSProperties = {
@@ -119,6 +120,14 @@ export default function Signup() {
             {loading ? 'Creating account…' : 'Continue'}
           </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 4px' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 12, color: 'var(--text-4)', fontWeight: 500 }}>or</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        <GoogleButton />
 
         <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-3)' }}>
           Already have an account?{' '}

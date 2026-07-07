@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -17,6 +18,7 @@ import Tournament from './pages/Tournament'
 
 export default function App() {
   return (
+    <GoogleOAuthProvider clientId="318643758270-3tups7godtjrn848na8r1oh3htvntbni.apps.googleusercontent.com">
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
@@ -49,5 +51,6 @@ export default function App() {
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
+    </GoogleOAuthProvider>
   )
 }

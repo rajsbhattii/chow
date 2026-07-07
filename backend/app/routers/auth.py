@@ -50,6 +50,7 @@ class LoginBody(BaseModel):
 
 class GoogleBody(BaseModel):
     id_token: str
+    userinfo: dict = {}
 
 
 class RefreshBody(BaseModel):
@@ -144,11 +145,48 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/google")
-async def google_auth(_body: GoogleBody):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Google OAuth not yet configured",
-    )
+async def google_auth(body: GoogleBody, db: AsyncSession = Depends(get_db)):
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            body.id_token,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Google token")
+
+    google_id = payload["sub"]
+    email = payload.get("email", "")
+    name = payload.get("name", email.split("@")[0])
+
+    # Find by google_id first, then fall back to email
+    result = await db.execute(select(User).where(User.google_id == google_id))
+    user = result.scalar_one_or_none()
+
+    is_new_user = False
+    if not user:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if user:
+            user.google_id = google_id
+        else:
+            user = User(name=name, email=email, google_id=google_id, status="onboarding")
+            db.add(user)
+            is_new_user = True
+
+    await db.commit()
+    await db.refresh(user)
+
+    return {
+        "access_token": create_access_token(str(user.id)),
+        "refresh_token": create_refresh_token(str(user.id)),
+        "token_type": "bearer",
+        "is_new_user": is_new_user,
+        "user": _user_dict(user),
+    }
 
 
 @router.post("/refresh")
