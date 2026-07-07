@@ -83,8 +83,8 @@ export async function searchRestaurants(
   return data
 }
 
-export async function recordSwipe(restaurantId: string, direction: 'left' | 'right'): Promise<void> {
-  await api.post('/api/swipes', { restaurant_id: restaurantId, direction })
+export async function recordSwipe(restaurantId: string, direction: 'left' | 'right', vibe?: string): Promise<void> {
+  await api.post('/api/swipes', { restaurant_id: restaurantId, direction, vibe: vibe ?? null })
 }
 
 export async function bookmarkRestaurant(restaurantId: string): Promise<{ saved: boolean }> {

@@ -75,7 +75,7 @@ export default function TournamentDeck({
     if (dir === 'bookmark') {
       bookmarkRestaurant(restaurant.id).catch(() => {})
     } else if (dir !== 'maybe') {
-      recordSwipe(restaurant.id, dir).catch(() => {})
+      recordSwipe(restaurant.id, dir, vibe).catch(() => {})
     }
 
     const updatedKept = keep ? [...kept, restaurant] : kept

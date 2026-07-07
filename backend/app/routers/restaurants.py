@@ -1,4 +1,6 @@
 import math
+import random as _random
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -12,6 +14,74 @@ from app.models.swipe import Swipe
 from app.models.user import User
 
 router = APIRouter(prefix="/api/restaurants", tags=["restaurants"])
+
+# ── Preference scoring ──────────────────────────────────────────────────────────
+
+# Right-swipe likes decay with a 30-day half-life; left-swipe dislikes decay
+# faster (14-day) so "not in the mood" doesn't permanently bury a cuisine.
+_LIKE_HALF_LIFE = 30.0
+_DISLIKE_HALF_LIFE = 14.0
+# Negatives count half as much as positives even before decay.
+_DISLIKE_WEIGHT = 0.5
+# Minimum swipes before we trust the profile enough to rank by it.
+_COLD_START_THRESHOLD = 5
+# Fraction of the deck kept random to avoid filter bubbles.
+_EXPLORE_FRACTION = 0.20
+
+
+def _decay(age_days: float, half_life: float) -> float:
+    return math.exp(-age_days * math.log(2) / half_life)
+
+
+def _build_profile(swipes: list[Swipe], active_vibe: str | None) -> dict:
+    """Return affinity dicts for cuisine, price_scale, and tags.
+
+    When a vibe is active we weight vibe-matched swipes 70 / global 30.
+    """
+    now = datetime.utcnow()
+    cuisine_scores: dict[str, float] = {}
+    price_scores: dict[int, float] = {}
+    tag_scores: dict[str, float] = {}
+
+    for swipe in swipes:
+        age = (now - swipe.swiped_at).total_seconds() / 86400
+        is_like = swipe.direction == "right"
+        half_life = _LIKE_HALF_LIFE if is_like else _DISLIKE_HALF_LIFE
+        base_w = _decay(age, half_life) * (1.0 if is_like else -_DISLIKE_WEIGHT)
+
+        # Boost vibe-matched swipes when a vibe is active
+        vibe_match = active_vibe and swipe.vibe == active_vibe
+        w = base_w * (0.7 / 0.3 if vibe_match else 1.0) if active_vibe else base_w
+
+        r = swipe.restaurant
+        if r is None:
+            continue
+
+        for c in (r.cuisine or []):
+            cuisine_scores[c] = cuisine_scores.get(c, 0.0) + w
+        ps = r.price_scale or 2
+        price_scores[ps] = price_scores.get(ps, 0.0) + w
+        for t in (r.tags or []):
+            tag_scores[t] = tag_scores.get(t, 0.0) + w
+
+    return {"cuisine": cuisine_scores, "price": price_scores, "tags": tag_scores}
+
+
+def _score_restaurant(r: Restaurant, profile: dict, dist_km: float, max_dist: float) -> float:
+    """Affinity score in [0, ~1]. Higher = better match."""
+    cuisine_aff = sum(profile["cuisine"].get(c, 0.0) for c in (r.cuisine or []))
+    price_aff = profile["price"].get(r.price_scale or 2, 0.0)
+    tag_aff = sum(profile["tags"].get(t, 0.0) for t in (r.tags or []))
+    rating = float(r.avg_rating or 3.5) / 5.0
+    proximity = 1.0 - (dist_km / max(max_dist, 1.0))
+
+    return (
+        cuisine_aff * 0.35
+        + price_aff * 0.20
+        + tag_aff * 0.15
+        + rating * 0.10
+        + proximity * 0.20
+    )
 
 PRICE_LABEL = {1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}
 
@@ -213,24 +283,56 @@ async def list_restaurants(
     all_restaurants = result.scalars().all()
 
     # Filter by distance (done in Python after Haversine — avoids PostGIS dependency)
-    import random
     with_distance = [
         (r, _haversine_km(lat, lng, float(r.latitude or 0), float(r.longitude or 0)))
         for r in all_restaurants
         if r.latitude and r.longitude
     ]
     with_distance = [(r, d) for r, d in with_distance if d <= max_distance_km]
+
     if sort == "trending":
         with_distance.sort(key=lambda x: (x[0].review_count or 0), reverse=True)
     elif sort == "new":
-        from datetime import datetime as dt
-        with_distance.sort(key=lambda x: (x[0].created_at or dt.min), reverse=True)
+        with_distance.sort(key=lambda x: (x[0].created_at or datetime.min), reverse=True)
     elif sort == "top_rated":
         with_distance.sort(key=lambda x: float(x[0].avg_rating or 0), reverse=True)
-    elif shuffle or vibe:
-        random.shuffle(with_distance)
+    elif shuffle:
+        _random.shuffle(with_distance)
     else:
-        with_distance.sort(key=lambda x: x[1])
+        # Personalised ranking — fetch recent swipes with their restaurant relationship
+        from sqlalchemy.orm import selectinload
+        swipe_result = await db.execute(
+            select(Swipe)
+            .options(selectinload(Swipe.restaurant))
+            .where(
+                Swipe.user_id == current_user.id,
+                Swipe.swiped_at >= datetime.utcnow() - timedelta(days=90),
+            )
+            .order_by(Swipe.swiped_at.desc())
+            .limit(100)
+        )
+        recent_swipes = swipe_result.scalars().all()
+
+        if len(recent_swipes) >= _COLD_START_THRESHOLD:
+            profile = _build_profile(recent_swipes, vibe)
+            scored = [
+                (r, d, _score_restaurant(r, profile, d, max_distance_km))
+                for r, d in with_distance
+            ]
+            scored.sort(key=lambda x: x[2], reverse=True)
+
+            # Top 80% ranked, bottom 20% shuffled in for exploration
+            split = max(1, int(len(scored) * (1 - _EXPLORE_FRACTION)))
+            ranked = scored[:split]
+            explore = scored[split:]
+            _random.shuffle(explore)
+            with_distance = [(r, d) for r, d, _ in ranked + explore]
+        elif vibe:
+            # Cold start with vibe: shuffle so the deck feels fresh
+            _random.shuffle(with_distance)
+        else:
+            # Cold start no vibe: sort by distance
+            with_distance.sort(key=lambda x: x[1])
 
     total = len(with_distance)
     page = with_distance[offset: offset + limit]

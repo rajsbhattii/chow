@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/swipes", tags=["swipes"])
 class SwipeBody(BaseModel):
     restaurant_id: uuid.UUID
     direction: str  # "left" | "right"
+    vibe: str | None = None
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -43,11 +44,13 @@ async def record_swipe(
     swipe = existing.scalar_one_or_none()
     if swipe:
         swipe.direction = body.direction
+        swipe.vibe = body.vibe
     else:
         swipe = Swipe(
             user_id=current_user.id,
             restaurant_id=body.restaurant_id,
             direction=body.direction,
+            vibe=body.vibe,
         )
         db.add(swipe)
 

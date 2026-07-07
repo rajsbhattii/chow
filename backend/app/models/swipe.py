@@ -25,6 +25,7 @@ class Swipe(UUIDMixin, Base):
         UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE")
     )
     direction: Mapped[str] = mapped_column(String(5))  # left | right
+    vibe: Mapped[str | None] = mapped_column(String(20), nullable=True)
     swiped_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="swipes")

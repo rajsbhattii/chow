@@ -175,7 +175,8 @@ export default function Home() {
         setToast(`Saved ${restaurant.name}!`)
         setTimeout(() => setToast(''), 2500)
       } else {
-        await recordSwipe(restaurant.id, direction)
+        // freeplay deck has no vibe context — pass undefined
+        await recordSwipe(restaurant.id, direction, undefined)
       }
     } catch {
       // swipe UI already advanced — silently ignore network errors
