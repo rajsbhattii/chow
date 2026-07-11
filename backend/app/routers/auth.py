@@ -1,14 +1,19 @@
+import asyncio
 import hashlib
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import resend
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, field_validator
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.auth import (
     _decode_token,
@@ -31,7 +36,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
 class RegisterBody(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=120)
     email: EmailStr
     password: str
 
@@ -104,7 +109,8 @@ def _user_dict(user: User) -> dict:
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def register(request: Request, body: RegisterBody, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -128,7 +134,8 @@ async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login")
-async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginBody, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -171,11 +178,15 @@ async def google_auth(body: GoogleBody, db: AsyncSession = Depends(get_db)):
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
         if user:
-            user.google_id = google_id
-        else:
-            user = User(name=name, email=email, google_id=google_id, status="onboarding")
-            db.add(user)
-            is_new_user = True
+            # Email exists as a password account — refuse to auto-link.
+            # The user must sign in with their password first, then link from Settings.
+            raise HTTPException(
+                status_code=409,
+                detail="An account with this email already exists. Please sign in with your password.",
+            )
+        user = User(name=name, email=email, google_id=google_id, status="onboarding")
+        db.add(user)
+        is_new_user = True
 
     await db.commit()
     await db.refresh(user)
@@ -307,7 +318,8 @@ class ResetPasswordBody(BaseModel):
 
 
 @router.post("/forgot-password")
-async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/15minutes")
+async def forgot_password(request: Request, body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -315,34 +327,47 @@ async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(g
     if not user:
         return {"ok": True}
 
+    # Invalidate any prior unused tokens for this user
+    old_tokens = await db.execute(
+        select(PasswordReset).where(
+            PasswordReset.user_id == user.id,
+            PasswordReset.used == False,  # noqa: E712
+        )
+    )
+    for old in old_tokens.scalars().all():
+        old.used = True
+
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 
     reset = PasswordReset(
         user_id=user.id,
         token_hash=token_hash,
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
     db.add(reset)
     await db.commit()
 
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
 
-    resend.Emails.send({
-        "from": "onboarding@resend.dev",
-        "to": user.email,
-        "subject": "Reset your Chow password",
-        "html": f"""
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
-          <h2 style="margin:0 0 8px">Reset your password</h2>
-          <p style="color:#555;margin:0 0 24px">Click the button below to set a new password. This link expires in 1 hour.</p>
-          <a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#ff5a1f;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
-            Reset password
-          </a>
-          <p style="color:#999;font-size:12px;margin-top:24px">If you didn't request this, you can safely ignore this email.</p>
-        </div>
-        """,
-    })
+    try:
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": "onboarding@resend.dev",
+            "to": user.email,
+            "subject": "Reset your Chow password",
+            "html": f"""
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+              <h2 style="margin:0 0 8px">Reset your password</h2>
+              <p style="color:#555;margin:0 0 24px">Click the button below to set a new password. This link expires in 1 hour.</p>
+              <a href="{reset_url}" style="display:inline-block;padding:12px 24px;background:#ff5a1f;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
+                Reset password
+              </a>
+              <p style="color:#999;font-size:12px;margin-top:24px">If you didn't request this, you can safely ignore this email.</p>
+            </div>
+            """,
+        })
+    except Exception:
+        pass  # Always return ok — never reveal if email exists or if send failed
 
     return {"ok": True}
 
@@ -355,7 +380,7 @@ async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get
         select(PasswordReset).where(
             PasswordReset.token_hash == token_hash,
             PasswordReset.used == False,  # noqa: E712
-            PasswordReset.expires_at > datetime.utcnow(),
+            PasswordReset.expires_at > datetime.now(timezone.utc),
         )
     )
     reset = result.scalar_one_or_none()
@@ -366,6 +391,9 @@ async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
+
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     user.password_hash = hash_password(body.password)
     reset.used = True

@@ -1,13 +1,17 @@
 import math
 import random as _random
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models.restaurant import Restaurant
 from app.models.swipe import Swipe
@@ -38,7 +42,7 @@ def _build_profile(swipes: list[Swipe], active_vibe: str | None) -> dict:
 
     When a vibe is active we weight vibe-matched swipes 70 / global 30.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cuisine_scores: dict[str, float] = {}
     price_scores: dict[int, float] = {}
     tag_scores: dict[str, float] = {}
@@ -120,12 +124,47 @@ def _serialize(r: Restaurant, lat: float, lng: float) -> dict:
         "reviewCount": r.review_count,
         "busyHours": r.busy_hours,
         "tags": r.tags or [],
-        "imageUrl": r.image_url,
+        "imageUrl": f"/api/restaurants/{r.id}/photo" if r.image_url else None,
         "imageEmoji": r.image_emoji or "🍽️",
         "neighbourhood": r.neighbourhood,
         "website": r.website,
         "location": r.location,
     }
+
+
+@router.get("/{restaurant_id}/photo")
+async def get_photo(
+    restaurant_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Restaurant).where(Restaurant.id == restaurant_id))
+    r = result.scalar_one_or_none()
+    if not r or not r.image_url:
+        raise HTTPException(status_code=404, detail="No photo available")
+
+    # Replace the stored key with the current server-side key.
+    # Stored format: https://places.googleapis.com/v1/{resource}/media?maxWidthPx=800&key=OLD
+    base = r.image_url.split("&key=")[0].split("?key=")[0]
+    sep = "&" if "?" in base else "?"
+    photo_url = f"{base}{sep}key={settings.GOOGLE_PLACES_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            resp = await client.get(photo_url)
+            # Places API returns JSON with photoUri instead of the image directly
+            if resp.headers.get("content-type", "").startswith("application/json"):
+                photo_uri = resp.json().get("photoUri")
+                if not photo_uri:
+                    raise HTTPException(status_code=502, detail="No photo URI in response")
+                resp = await client.get(photo_uri)
+        content_type = resp.headers.get("content-type", "image/jpeg")
+        return Response(content=resp.content, media_type=content_type, headers={
+            "Cache-Control": "public, max-age=86400",
+        })
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not fetch photo")
 
 
 @router.get("")
@@ -257,8 +296,8 @@ async def list_restaurants(
 
     # Exclude swiped restaurants — right swipes always excluded, left swipes return after 7 days
     if exclude_swiped:
-        from datetime import datetime, timedelta
-        left_swipe_cutoff = datetime.utcnow() - timedelta(days=7)
+        from datetime import datetime, timedelta, timezone
+        left_swipe_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
         right_swipe_subq = (
             select(Swipe.restaurant_id)
@@ -306,7 +345,7 @@ async def list_restaurants(
             .options(selectinload(Swipe.restaurant))
             .where(
                 Swipe.user_id == current_user.id,
-                Swipe.swiped_at >= datetime.utcnow() - timedelta(days=90),
+                Swipe.swiped_at >= datetime.now(timezone.utc) - timedelta(days=90),
             )
             .order_by(Swipe.swiped_at.desc())
             .limit(100)

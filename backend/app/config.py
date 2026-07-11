@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
     GOOGLE_CLIENT_ID: str = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour; refresh token handles long sessions
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

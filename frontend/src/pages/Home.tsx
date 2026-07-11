@@ -90,6 +90,7 @@ export default function Home() {
         budget: filterBudget.length > 0 ? filterBudget : undefined,
         cuisine: filterCuisine.length > 0 ? filterCuisine : undefined,
         excludeSwiped: true,
+        shuffle: true,
         limit: 50,
       })
       setRestaurants(res.restaurants)

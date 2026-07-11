@@ -13,6 +13,8 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/swipes", tags=["swipes"])
 
+ALLOWED_VIBES = {"date_night", "quick_bite", "brunch", "adventurous", "comfort", "group"}
+
 
 class SwipeBody(BaseModel):
     restaurant_id: uuid.UUID
@@ -28,6 +30,8 @@ async def record_swipe(
 ):
     if body.direction not in ("left", "right"):
         raise HTTPException(status_code=400, detail="direction must be 'left' or 'right'")
+    if body.vibe is not None and body.vibe not in ALLOWED_VIBES:
+        raise HTTPException(status_code=400, detail=f"vibe must be one of {sorted(ALLOWED_VIBES)}")
 
     # Confirm restaurant exists
     result = await db.execute(select(Restaurant).where(Restaurant.id == body.restaurant_id))

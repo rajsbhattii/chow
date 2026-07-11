@@ -32,14 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return raw ? JSON.parse(raw) : null
   })
 
-  // On mount, validate the stored token by hitting /me
+  // On mount, validate the stored token by hitting /me.
+  // The axios interceptor in api.ts handles 401s by refreshing automatically —
+  // we only hard-logout here if refresh also fails (interceptor calls window.location).
   useEffect(() => {
     if (!token) return
     api.get('/api/auth/me').then(res => {
       setUser(res.data)
       localStorage.setItem('chow_user', JSON.stringify(res.data))
     }).catch(() => {
-      // token is invalid/expired — clear everything
+      // Interceptor already attempted refresh — if we're here, both tokens are dead
       logout()
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import and_, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -57,8 +58,11 @@ async def create_save(
         await db.commit()
         return {"saved": False}
 
-    db.add(Save(user_id=current_user.id, restaurant_id=body.restaurant_id, status="want_to_go"))
-    await db.commit()
+    try:
+        db.add(Save(user_id=current_user.id, restaurant_id=body.restaurant_id, status="want_to_go"))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
     return {"saved": True}
 
 
@@ -88,7 +92,7 @@ async def pick_restaurant(
         select(Save).where(Save.user_id == current_user.id, Save.restaurant_id == body.restaurant_id)
     )
     save = existing_save.scalar_one_or_none()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if save:
         save.picked_at = now
         save.snoozed_until = None
@@ -114,7 +118,7 @@ async def get_nudge(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the single pending nudge for this user, if any."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     q = (
         select(Save)
         .where(
@@ -163,7 +167,7 @@ async def snooze_nudge(
     if not save:
         raise HTTPException(status_code=404, detail="Save not found")
 
-    save.snoozed_until = datetime.utcnow() + timedelta(days=4)
+    save.snoozed_until = datetime.now(timezone.utc) + timedelta(days=4)
     await db.commit()
     return {"snoozed": True}
 
