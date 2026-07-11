@@ -1,4 +1,4 @@
-import { Moon, Sun } from 'lucide-react'
+import { Bookmark, Compass, Home, Moon, Sun, User } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -8,6 +8,13 @@ const navItems = [
   { to: '/saved', label: 'Saved' },
   { to: '/explore', label: 'Explore' },
   { to: '/profile', label: 'Profile' },
+]
+
+const mobileNavItems = [
+  { to: '/home', label: 'Home', icon: Home },
+  { to: '/saved', label: 'Saved', icon: Bookmark },
+  { to: '/explore', label: 'Explore', icon: Compass },
+  { to: '/profile', label: 'Profile', icon: User },
 ]
 
 export default function Layout() {
@@ -26,6 +33,7 @@ export default function Layout() {
         position: 'sticky', top: 0, zIndex: 50,
         background: 'var(--header-bg)',
         backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)',
         transition: 'background 0.2s, border-color 0.2s',
       }}>
@@ -35,7 +43,8 @@ export default function Layout() {
             <span style={{ fontWeight: 900, fontSize: 18, color: 'var(--text-1)', letterSpacing: '-0.03em' }}>Chow</span>
           </NavLink>
 
-          <nav style={{ display: 'flex', gap: 4 }}>
+          {/* Desktop nav — hidden on mobile */}
+          <nav className="desktop-only" style={{ display: 'flex', gap: 4 }}>
             {navItems.map(({ to, label }) => (
               <NavLink
                 key={to}
@@ -70,6 +79,7 @@ export default function Layout() {
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
             <button
+              className="desktop-only"
               onClick={handleLogout}
               style={{
                 padding: '8px 18px',
@@ -91,6 +101,20 @@ export default function Layout() {
       <main style={{ flex: 1 }}>
         <Outlet />
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="mobile-bottom-nav">
+        {mobileNavItems.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => isActive ? 'active' : ''}
+          >
+            <Icon size={22} strokeWidth={1.75} />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

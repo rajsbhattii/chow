@@ -192,10 +192,10 @@ export default function Home() {
     : null
 
   return (
-    <div className="page" style={{ display: 'flex', gap: 48, alignItems: 'flex-start' }}>
+    <div className="page home-layout" style={{ display: 'flex', gap: 48, alignItems: 'flex-start' }}>
 
       {/* ── Left column ── */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div className="home-left-col" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32 }}>
 
         {/* Greeting */}
         <div>
@@ -324,7 +324,7 @@ export default function Home() {
           </div>
 
           {/* Filter chips */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {([
               { key: 'budget' as const, label: budgetLabel, active: budgetActive },
               { key: 'distance' as const, label: distanceLabel, active: distanceActive },
@@ -488,7 +488,7 @@ export default function Home() {
       </div>
 
       {/* ── Right column — tournament or freeplay deck ── */}
-      <div style={{ width: 380, flexShrink: 0, position: 'relative' }}>
+      <div className="home-right-col" style={{ width: 380, flexShrink: 0, position: 'relative' }}>
         {activeVibe ? (
           <TournamentDeck
             key={tournamentKey!}
