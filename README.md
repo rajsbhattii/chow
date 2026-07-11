@@ -1,16 +1,29 @@
 # Chow
 
-Tinder for restaurants. Swipe right to save, left to skip.
+Tinder for restaurants. Swipe to discover, vibe-match to decide, tournament mode to pick tonight's dinner.
+
+Built for Toronto — seeded with ~850 real restaurants from Google Places.
+
+## Features
+
+- **Swipe deck** — right to save, left to skip. Left swipes return after 7 days so the deck stays fresh.
+- **Vibe mode** — filter by mood (Date Night, Quick Bite, Brunch, Adventurous, Comfort, Group) before swiping.
+- **Tournament** — bracket-style head-to-head to pick one winner from your saves.
+- **Personalised ranking** — the deck learns from your swipe history using a weighted decay algorithm. Vibes you swipe on more surface higher; tastes you've grown out of fade naturally.
+- **Explore** — search, filter by cuisine/vibe/budget, sort by trending/new/top-rated.
+- **Profile** — stats, badges, editable preferences.
+- **Nudge system** — reminders to actually visit restaurants you've saved.
 
 ## Tech Stack
 
 | Layer | Tech |
 |---|---|
-| Backend | Python, FastAPI, PostgreSQL, SQLAlchemy (async) |
-| Frontend | React, TypeScript, Tailwind CSS, Framer Motion |
-| Auth | JWT (access + refresh tokens) + Google OAuth (coming) |
-| Data | Google Places API → seeded into PostgreSQL |
-| iOS | Swift (v2) |
+| Backend | Python 3.13, FastAPI, PostgreSQL, SQLAlchemy (async), Alembic |
+| Frontend | React 19, TypeScript, Tailwind CSS v4, Framer Motion |
+| Auth | JWT (1hr access + 30d refresh) + Google OAuth |
+| Photos | Google Places API proxied server-side (key never exposed to client) |
+| Email | Resend |
+| Rate limiting | slowapi |
 
 ## Project Structure
 
@@ -20,44 +33,38 @@ chow/
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py
-│   │   ├── database.py
 │   │   ├── auth.py
-│   │   ├── models/         # User, Restaurant, Swipe, Save, Visit
-│   │   └── routers/        # auth, restaurants, swipes
+│   │   ├── models/         # User, Restaurant, Swipe, Save, Visit, PasswordReset
+│   │   └── routers/        # auth, restaurants, swipes, saves, profile, visits
 │   ├── alembic/            # DB migrations
 │   ├── scripts/
 │   │   └── fetch_restaurants.py   # Google Places → DB seed
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── components/     # Layout, SwipeCard, RestaurantModal, ProtectedRoute
+│       ├── components/     # SwipeCard, TournamentDeck, RestaurantModal, ...
 │       ├── context/        # AuthContext, ThemeContext
-│       ├── lib/            # axios instance (api.ts)
+│       ├── lib/            # axios instance with refresh token interceptor
 │       ├── pages/
-│       │   ├── auth/       # Welcome, Login, Signup, Onboarding
+│       │   ├── auth/       # Welcome, Login, Signup, ForgotPassword, Onboarding
 │       │   ├── Home.tsx
 │       │   ├── Saved.tsx
 │       │   ├── Explore.tsx
 │       │   └── Profile.tsx
-│       └── data/
-│           └── restaurants.ts   # API helpers + types
-├── dev.sh                  # runs frontend + backend together
-├── PLANNING.md
-└── TASKS.md
+│       └── data/           # API helpers + types
+└── dev.sh                  # starts both servers, Ctrl+C kills both
 ```
 
----
-
-## Getting Started
+## Local Development
 
 ### Prerequisites
 
 - Python 3.11+
 - Node 18+
 - PostgreSQL running locally
-- Google Cloud project with **Places API** enabled
+- Google Cloud project with **Places API (New)** enabled
 
-### 1. Clone and set up the backend
+### 1. Backend setup
 
 ```bash
 cd backend
@@ -66,63 +73,42 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Fill in `.env`:
+Create `backend/.env`:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/chow_dev
 SECRET_KEY=your-secret-key-here
-GOOGLE_PLACES_API_KEY=your-google-places-key
+GOOGLE_PLACES_API_KEY=your-key
+GOOGLE_CLIENT_ID=your-oauth-client-id
+RESEND_API_KEY=your-resend-key
+FRONTEND_URL=http://localhost:5173
 ENVIRONMENT=development
 ```
-
-### 3. Create the DB and run migrations
 
 ```bash
 createdb chow_dev
 alembic upgrade head
+python scripts/fetch_restaurants.py   # one-time seed (~850 Toronto restaurants)
 ```
 
-### 4. Seed restaurant data
-
-This fetches ~1000 Toronto restaurants from the Google Places API and stores them in your DB. **You only need to run this once** — all user requests (swipes, filters, etc.) read from the DB, not from Google directly.
-
-```bash
-python scripts/fetch_restaurants.py
-```
-
-Output:
-```
-Fetching japanese_restaurant near Downtown...
-Fetching italian_restaurant near Downtown...
-...
-Done: 847 inserted, 0 updated, 312 skipped
-```
-
-**Re-run when:** you want to refresh stale ratings/hours, or expand to a new city. The script upserts on `google_place_id` so it's safe to re-run at any time.
-
-**Cost:** ~$25 for 1000 restaurants (one-time). Google gives $200/month free credit, so it's effectively free.
-
-### 5. Set up the frontend
+### 2. Frontend setup
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 6. Run everything
+Create `frontend/.env.local`:
 
-```bash
-# From the repo root:
-./dev.sh
+```env
+VITE_API_URL=http://localhost:8000
 ```
 
-This starts both servers and kills both on Ctrl+C.
+### 3. Run
+
+```bash
+./dev.sh
+```
 
 | Service | URL |
 |---|---|
@@ -130,73 +116,33 @@ This starts both servers and kills both on Ctrl+C.
 | Backend | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 
----
-
-## API Endpoints
+## API Overview
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | — | Create account, returns tokens |
-| POST | `/api/auth/login` | — | Login, returns tokens + `is_new_user` |
-| POST | `/api/auth/refresh` | — | Exchange refresh token for new access token |
-| POST | `/api/auth/onboarding` | ✓ | Save preferences, set status → active |
-| GET | `/api/auth/me` | ✓ | Current user profile |
-| GET | `/api/restaurants` | ✓ | Filtered restaurant list for swipe deck |
-| POST | `/api/swipes` | ✓ | Record a swipe (right swipe auto-saves) |
-
-### `GET /api/restaurants` query params
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `lat` | float | required | User latitude |
-| `lng` | float | required | User longitude |
-| `max_distance_km` | int | 25 | Filter by radius |
-| `budget` | string[] | — | `$` `$$` `$$$` `$$$$` |
-| `cuisine` | string[] | — | e.g. `Japanese`, `Italian` |
-| `vibe` | string | — | `date_night` `quick_bite` `brunch` `adventurous` `comfort` `group` |
-| `exclude_swiped` | bool | true | Hide already-seen restaurants |
-| `limit` | int | 20 | Page size |
-| `offset` | int | 0 | Pagination offset |
-
----
-
-## Database Models
-
-| Model | Key Fields |
-|---|---|
-| User | id, name, email, password_hash, status (onboarding/active), cuisine_preferences, adventure_level, budget_range, max_distance, transport_modes, dietary_needs |
-| Restaurant | id, name, cuisine, price_scale, lat/lng, avg_rating, review_count, tags, neighbourhood, image_url, image_emoji, google_place_id |
-| Swipe | id, user_id, restaurant_id, direction (left/right), swiped_at |
-| Save | id, user_id, restaurant_id, saved_at, status (want_to_go/been_here) |
-| Visit | id, user_id, restaurant_id, visited_at, star_rating (1–5), would_return |
-
----
-
-## Auth Flow
-
-```
-/  (Welcome)
-  → /signup  → /onboarding  → /home
-  → /login   → /home  (or /onboarding if status = onboarding)
-```
-
-- JWT access token (7 days) + refresh token (30 days)
-- Token stored in `localStorage`, auto-attached to all API requests
-- All routes except `/`, `/login`, `/signup` require auth
-
----
+| POST | `/api/auth/register` | — | Create account |
+| POST | `/api/auth/login` | — | Login, returns tokens |
+| POST | `/api/auth/refresh` | — | Refresh access token |
+| POST | `/api/auth/google` | — | Google OAuth sign-in |
+| POST | `/api/auth/forgot-password` | — | Send reset email (3/15min rate limit) |
+| POST | `/api/auth/reset-password` | — | Reset with token |
+| GET | `/api/auth/me` | ✓ | Current user |
+| GET | `/api/restaurants` | ✓ | Swipe deck (filtered + ranked) |
+| GET | `/api/restaurants/:id/photo` | — | Proxied Google Places photo |
+| POST | `/api/swipes` | ✓ | Record swipe |
+| DELETE | `/api/swipes/history` | ✓ | Clear left-swipe history |
+| GET | `/api/saves` | ✓ | Saved restaurants |
+| POST | `/api/saves` | ✓ | Save / unsave a restaurant |
+| POST | `/api/saves/pick` | ✓ | Lock in a tournament winner |
+| GET | `/api/saves/nudge` | ✓ | Get pending visit nudge |
+| GET | `/api/profile/stats` | ✓ | Swipe stats + badges |
 
 ## Migrations
 
 ```bash
 cd backend
 
-# Create a new migration after changing a model
-alembic revision --autogenerate -m "description"
-
-# Apply all pending migrations
-alembic upgrade head
-
-# Roll back one migration
-alembic downgrade -1
+alembic revision --autogenerate -m "description"   # after changing a model
+alembic upgrade head                                # apply pending
+alembic downgrade -1                               # roll back one
 ```
