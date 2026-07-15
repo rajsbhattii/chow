@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TournamentDeck from '../components/TournamentDeck'

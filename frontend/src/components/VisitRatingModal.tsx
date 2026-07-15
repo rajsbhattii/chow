@@ -28,7 +28,6 @@ export default function VisitRatingModal({ isOpen, restaurantId, restaurantName,
   const [step, setStep] = useState<'rating' | 'would_return' | 'done'>('rating')
   const [starRating, setStarRating] = useState(0)
   const [hoveredStar, setHoveredStar] = useState(0)
-  const [wouldReturn, setWouldReturn] = useState<'definitely' | 'maybe' | 'probably_not' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [badges, setBadges] = useState<string[]>([])
 
@@ -47,7 +46,6 @@ export default function VisitRatingModal({ isOpen, restaurantId, restaurantName,
     setStep('rating')
     setStarRating(0)
     setHoveredStar(0)
-    setWouldReturn(null)
     setBadges([])
     onClose()
   }

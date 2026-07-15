@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
-import { Bookmark, Heart, MapPin, Star, X } from 'lucide-react'
+import { Bookmark, Heart, MapPin, Star, Undo2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { RestaurantDetail } from '../data/restaurants'
 import RestaurantModal from './RestaurantModal'
