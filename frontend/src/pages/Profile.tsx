@@ -567,12 +567,12 @@ export default function Profile() {
 
           {/* Distance */}
           <Section label={`Max distance · ${settingsDistance} km`}>
-            <input type="range" min={1} max={25} value={settingsDistance}
+            <input type="range" min={1} max={200} value={settingsDistance}
               onChange={e => setSettingsDistance(Number(e.target.value))}
               style={{ width: '100%', accentColor: 'var(--orange)' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
               <span style={{ fontSize: 11, color: 'var(--text-4)' }}>1 km</span>
-              <span style={{ fontSize: 11, color: 'var(--text-4)' }}>25 km</span>
+              <span style={{ fontSize: 11, color: 'var(--text-4)' }}>200 km</span>
             </div>
           </Section>
 

@@ -71,7 +71,7 @@ export async function searchRestaurants(
   p.set('lat', String(lat))
   p.set('lng', String(lng))
   p.set('exclude_swiped', 'false')
-  p.set('max_distance_km', '25')
+  p.set('max_distance_km', '200')
   if (params.q) p.set('q', params.q)
   if (params.sort) p.set('sort', params.sort)
   if (params.tag) p.set('tag', params.tag)

@@ -47,7 +47,7 @@ export default function Tournament() {
         vibeEmoji={meta.emoji}
         lat={coords.current.lat}
         lng={coords.current.lng}
-        maxDistanceKm={user?.max_distance ?? 25}
+        maxDistanceKm={user?.max_distance ?? 200}
         onExit={() => navigate('/home')}
         onNavigateSaved={() => navigate('/saved')}
       />

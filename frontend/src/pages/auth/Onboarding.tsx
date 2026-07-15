@@ -179,12 +179,12 @@ export default function Onboarding() {
                     <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max distance</p>
                     <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--orange)' }}>{distance} km</p>
                   </div>
-                  <input type="range" min={1} max={25} value={distance}
+                  <input type="range" min={1} max={200} value={distance}
                     onChange={e => { const v = Number(e.target.value); setDistance(v); saveDraft({ max_distance_km: v }) }}
                     style={{ width: '100%', accentColor: 'var(--orange)' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                     <span style={{ fontSize: 11, color: 'var(--text-4)' }}>1 km</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-4)' }}>25 km</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-4)' }}>200 km</span>
                   </div>
                 </div>
 

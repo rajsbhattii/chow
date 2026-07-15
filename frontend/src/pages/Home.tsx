@@ -26,7 +26,7 @@ const DISTANCE_OPTIONS = [
   { label: 'Nearby (< 1 km)', value: 1 },
   { label: 'Under 5 km', value: 5 },
   { label: 'Under 10 km', value: 10 },
-  { label: 'Any distance', value: 25 },
+  { label: 'Any distance', value: 200 },
 ]
 const CUISINE_OPTIONS = [
   'American', 'Brunch', 'Chinese', 'Ethiopian', 'French', 'Greek',
@@ -55,7 +55,7 @@ export default function Home() {
   const [activeVibe, setActiveVibe] = useState<{ value: string; label: string; emoji: string } | null>(null)
 
   const [filterBudget, setFilterBudget] = useState<string[]>([])
-  const [filterDistance, setFilterDistance] = useState(25)
+  const [filterDistance, setFilterDistance] = useState(200)
   const [filterCuisine, setFilterCuisine] = useState<string[]>([])
   const [openFilter, setOpenFilter] = useState<'budget' | 'distance' | 'cuisine' | null>(null)
 
@@ -153,12 +153,12 @@ export default function Home() {
   }
 
   const budgetActive = filterBudget.length > 0
-  const distanceActive = filterDistance < 25
+  const distanceActive = filterDistance < 200
   const cuisineActive = filterCuisine.length > 0
   const anyFilterActive = budgetActive || distanceActive || cuisineActive
 
   const budgetLabel = filterBudget.length === 0 ? 'Budget' : filterBudget.join(' · ')
-  const distanceLabel = filterDistance === 25 ? 'Any distance' : `< ${filterDistance} km`
+  const distanceLabel = filterDistance === 200 ? 'Any distance' : `< ${filterDistance} km`
   const cuisineLabel = filterCuisine.length === 0
     ? 'Cuisine'
     : filterCuisine.length === 1
