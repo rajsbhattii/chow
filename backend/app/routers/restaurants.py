@@ -173,7 +173,7 @@ async def list_restaurants(
     lng: float = Query(...),
     budget: Optional[list[str]] = Query(default=None),
     cuisine: Optional[list[str]] = Query(default=None),
-    max_distance_km: int = Query(default=25),
+    max_distance_km: int = Query(default=200),
     vibe: Optional[str] = Query(default=None),
     shuffle: bool = Query(default=False),
     dietary: Optional[list[str]] = Query(default=None),
@@ -387,7 +387,7 @@ async def list_restaurants(
 async def random_restaurant(
     lat: float = Query(...),
     lng: float = Query(...),
-    max_distance_km: int = Query(default=25),
+    max_distance_km: int = Query(default=200),
     cuisine: Optional[list[str]] = Query(default=None),
     tag: Optional[str] = Query(default=None),
     q: Optional[str] = Query(default=None),
