@@ -25,6 +25,11 @@ export interface RestaurantsResponse {
   offset: number
 }
 
+function resolveImageUrl(r: RestaurantDetail): RestaurantDetail {
+  if (!r.imageUrl || /^https?:\/\//.test(r.imageUrl)) return r
+  return { ...r, imageUrl: `${api.defaults.baseURL}${r.imageUrl}` }
+}
+
 export async function fetchRestaurants(
   lat: number,
   lng: number,
@@ -52,7 +57,7 @@ export async function fetchRestaurants(
   if (params.offset) p.set('offset', String(params.offset))
 
   const { data } = await api.get<RestaurantsResponse>(`/api/restaurants?${p}`)
-  return data
+  return { ...data, restaurants: data.restaurants.map(resolveImageUrl) }
 }
 
 export async function searchRestaurants(
@@ -80,7 +85,7 @@ export async function searchRestaurants(
   if (params.offset !== undefined) p.set('offset', String(params.offset))
 
   const { data } = await api.get<RestaurantsResponse>(`/api/restaurants?${p}`)
-  return data
+  return { ...data, restaurants: data.restaurants.map(resolveImageUrl) }
 }
 
 export async function recordSwipe(restaurantId: string, direction: 'left' | 'right', vibe?: string): Promise<void> {
@@ -102,7 +107,7 @@ export async function fetchRandomRestaurant(params: {
   if (params.tag) p.set('tag', params.tag)
   if (params.q) p.set('q', params.q)
   const { data } = await api.get<RestaurantDetail>(`/api/restaurants/random?${p}`)
-  return data
+  return resolveImageUrl(data)
 }
 
 export async function confirmRisk(): Promise<{ gambler_count: number; badge_unlocked: boolean }> {
@@ -127,6 +132,7 @@ export async function fetchNudge(lat?: number, lng?: number): Promise<NudgeRespo
   if (lat) p.set('lat', String(lat))
   if (lng) p.set('lng', String(lng))
   const { data } = await api.get<NudgeResponse>(`/api/saves/nudge?${p}`)
+  if (data.nudge) data.nudge.restaurant = resolveImageUrl(data.nudge.restaurant)
   return data
 }
 
@@ -165,7 +171,7 @@ export async function fetchSaves(params: {
   if (params.lat) p.set('lat', String(params.lat))
   if (params.lng) p.set('lng', String(params.lng))
   const { data } = await api.get<SavesResponse>(`/api/saves?${p}`)
-  return data
+  return { ...data, saves: data.saves.map(s => ({ ...s, restaurant: resolveImageUrl(s.restaurant) })) }
 }
 
 export async function deleteSave(saveId: string): Promise<void> {
