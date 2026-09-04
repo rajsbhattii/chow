@@ -170,12 +170,20 @@ async def get_photo(
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             resp = await client.get(photo_url)
+            if resp.is_error:
+                detail = "Google photo request failed"
+                try:
+                    detail = resp.json().get("error", {}).get("message", detail)
+                except ValueError:
+                    pass
+                raise HTTPException(status_code=502, detail=detail)
             # Places API returns JSON with photoUri instead of the image directly
             if resp.headers.get("content-type", "").startswith("application/json"):
                 photo_uri = resp.json().get("photoUri")
                 if not photo_uri:
                     raise HTTPException(status_code=502, detail="No photo URI in response")
                 resp = await client.get(photo_uri)
+                resp.raise_for_status()
         content_type = resp.headers.get("content-type", "image/jpeg")
         return Response(content=resp.content, media_type=content_type, headers={
             "Cache-Control": "public, max-age=86400",
