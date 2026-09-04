@@ -1,4 +1,5 @@
 import { Bookmark, Compass, Home, Moon, Sun, User } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -103,18 +104,32 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="mobile-bottom-nav">
-        {mobileNavItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => isActive ? 'active' : ''}
-          >
-            <Icon size={22} strokeWidth={1.75} />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+      {createPortal(
+        <nav
+          className="mobile-bottom-nav"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: 'auto',
+            width: '100%',
+            zIndex: 9999,
+          }}
+        >
+          {mobileNavItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <Icon size={22} strokeWidth={1.75} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>,
+        document.body,
+      )}
     </div>
   )
 }

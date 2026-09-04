@@ -198,7 +198,7 @@ export default function Home() {
       <div className="home-left-col" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 32 }}>
 
         {/* Greeting */}
-        <div>
+        <div className="home-greeting">
           <p style={{ fontSize: 13, color: 'var(--text-4)', fontWeight: 500, marginBottom: 6 }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
@@ -212,7 +212,7 @@ export default function Home() {
 
         {/* Nudge — only shown when there's a pending tournament pick */}
         {nudge && (
-          <div className="card" style={{
+          <div className="card home-nudge" style={{
             padding: '16px 20px', background: 'var(--surface-warm)', borderColor: 'var(--border-warm)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: nudgeShowFollowup ? 12 : 0 }}>
@@ -308,7 +308,7 @@ export default function Home() {
         )}
 
         {/* Filters */}
-        <div>
+        <div className="home-filters">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Filters
@@ -441,7 +441,7 @@ export default function Home() {
         </div>
 
         {/* Vibe selector → launches tournament inline */}
-        <div>
+        <div className="home-vibes">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
               <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
@@ -464,7 +464,7 @@ export default function Home() {
               </button>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div className="home-vibe-options" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {VIBES.map(({ label, emoji: e, value }) => (
               <button
                 key={value}
@@ -562,7 +562,7 @@ function EmptyDeck({ icon, title, subtitle, action }: {
   action?: { label: string; onClick: () => void }
 }) {
   return (
-    <div style={{
+    <div className="empty-deck" style={{
       height: 466, borderRadius: 20,
       background: 'var(--surface)', border: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,

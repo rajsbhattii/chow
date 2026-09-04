@@ -139,6 +139,7 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
           >
             {/* Image section — tap here to open modal */}
             <div
+              className="swipe-card-image"
               style={{ position: 'relative', maxWidth: '100%', overflow: 'hidden' }}
               onPointerDown={handleCardPressStart}
               onPointerMove={handleCardPressMove}
@@ -152,10 +153,11 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
                   src={restaurant.imageUrl}
                   alt={restaurant.name}
                   draggable={false}
+                  className="swipe-card-photo"
                   style={{ width: '100%', height: 380, objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
                 />
               ) : (
-                <div style={{
+                <div className="swipe-card-placeholder" style={{
                   width: '100%', height: 380, background: 'var(--surface-warm)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 80, pointerEvents: 'none',
@@ -216,6 +218,7 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
 
             {/* Action buttons — inside the card, stop pointer events from triggering drag */}
             <div
+              className="swipe-card-actions"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => e.stopPropagation()}
               style={{
