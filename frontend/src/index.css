@@ -244,6 +244,18 @@ button, a { touch-action: manipulation; }
     color: var(--orange);
   }
 
+  /* Explore page: Take a Risk collapses to just the dice icon */
+  .risk-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+  }
+  .risk-label {
+    display: none;
+  }
+
   /* Profile page: stack stats/badges/DNA grids instead of squeezing them */
   .profile-stats-row {
     flex-direction: column !important;

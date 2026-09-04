@@ -8,14 +8,12 @@ const navItems = [
   { to: '/home', label: 'Home' },
   { to: '/saved', label: 'Saved' },
   { to: '/explore', label: 'Explore' },
-  { to: '/profile', label: 'Profile' },
 ]
 
 const mobileNavItems = [
   { to: '/home', label: 'Home', icon: Home },
   { to: '/saved', label: 'Saved', icon: Bookmark },
   { to: '/explore', label: 'Explore', icon: Compass },
-  { to: '/profile', label: 'Profile', icon: User },
 ]
 
 export default function Layout() {
@@ -71,14 +69,29 @@ export default function Layout() {
               onClick={toggle}
               aria-label="Toggle dark mode"
               style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: 'var(--surface)', border: '1px solid var(--border)',
+                width: 33, height: 33, borderRadius: '50%',
+                background: 'transparent', border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text-3)', transition: 'all 0.15s',
+                cursor: 'pointer', color: 'var(--text-4)', transition: 'all 0.15s',
               }}
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+            <NavLink
+              to="/profile"
+              aria-label="Profile"
+              style={({ isActive }) => ({
+                width: 39, height: 39, borderRadius: '50%',
+                background: isActive ? 'var(--pill-active-bg)' : 'var(--surface)',
+                border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                color: isActive ? 'var(--pill-active-color)' : 'var(--text-3)',
+                transition: 'all 0.15s',
+              })}
+            >
+              <User size={17} />
+            </NavLink>
             <button
               className="desktop-only"
               onClick={handleLogout}

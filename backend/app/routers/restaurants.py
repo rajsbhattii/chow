@@ -323,7 +323,6 @@ async def list_restaurants(
 
     # Exclude swiped restaurants — right swipes always excluded, left swipes return after 7 days
     if exclude_swiped:
-        from datetime import datetime, timedelta, timezone
         left_swipe_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
         right_swipe_subq = (

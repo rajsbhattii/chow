@@ -1,4 +1,4 @@
-import { Search, Star, X } from 'lucide-react'
+import { ChevronDown, Search, Star, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import RestaurantModal from '../components/RestaurantModal'
 import TakeRiskModal from '../components/TakeRiskModal'
@@ -13,6 +13,13 @@ const VIBES = [
   { label: 'Top rated',    emoji: '⭐', sort: 'top_rated' },
   { label: 'Hidden gems',  emoji: '💎', tag:  'hidden_gem' },
   { label: 'Late night',   emoji: '🌙', tag:  'late_night' },
+]
+
+const SORT_OPTIONS = [
+  { value: '', label: 'Sort by' },
+  { value: 'top_rated', label: 'Top rated' },
+  { value: 'trending', label: 'Most reviewed' },
+  { value: 'new', label: 'Newest' },
 ]
 
 const CUISINES = [
@@ -101,6 +108,8 @@ export default function Explore() {
   const [activeVibe, setActiveVibe] = useState<string | null>(null)
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState('')
+  const [sortOpen, setSortOpen] = useState(false)
+  const sortRef = useRef<HTMLDivElement | null>(null)
 
   const [results, setResults] = useState<RestaurantDetail[]>([])
   const [total, setTotal] = useState(0)
@@ -121,6 +130,18 @@ export default function Explore() {
       () => {},
     )
   }, [])
+
+  // Close the sort dropdown on outside click
+  useEffect(() => {
+    if (!sortOpen) return
+    function handleClick(e: MouseEvent) {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [sortOpen])
 
   const activeVibeObj = VIBES.find(v => v.label === activeVibe)
 
@@ -246,6 +267,7 @@ export default function Explore() {
 
         {/* Take a Risk button */}
         <button
+          className="risk-btn"
           onClick={handleRisk}
           disabled={riskRolling}
           title="Take a Risk"
@@ -257,36 +279,66 @@ export default function Explore() {
             opacity: riskRolling ? 0.6 : 1, transition: 'all 0.15s',
           }}
         >
-          <span style={{ fontSize: 15 }}>{riskRolling ? '⏳' : '🎲'}</span> Take a Risk
+          <span style={{ fontSize: 15 }}>{riskRolling ? '⏳' : '🎲'}</span>
+          <span className="risk-label">Take a Risk</span>
         </button>
 
         {/* Sort dropdown */}
-        <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
-          style={{
-            flexShrink: 0,
-            padding: '7px 10px',
-            borderRadius: 10,
-            fontSize: 13,
-            fontWeight: 500,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: sortBy ? 'var(--text-1)' : 'var(--text-4)',
-            cursor: 'pointer',
-            outline: 'none',
-            appearance: 'none',
-            paddingRight: 28,
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'right 8px center',
-          }}
-        >
-          <option value="">Sort by</option>
-          <option value="top_rated">Top rated</option>
-          <option value="trending">Most reviewed</option>
-          <option value="new">Newest</option>
-        </select>
+        <div ref={sortRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => setSortOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 10px',
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 500,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: sortBy ? 'var(--text-1)' : 'var(--text-4)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? 'Sort by'}
+            <ChevronDown
+              size={12}
+              strokeWidth={2.5}
+              style={{
+                opacity: 0.6,
+                transform: sortOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.15s',
+              }}
+            />
+          </button>
+
+          {sortOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+              minWidth: '100%', zIndex: 20,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              padding: 4,
+            }}>
+              {SORT_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  onClick={() => { setSortBy(o.value); setSortOpen(false) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '7px 10px', borderRadius: 7,
+                    fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                    border: 'none', cursor: 'pointer',
+                    background: sortBy === o.value ? 'var(--surface-warm)' : 'transparent',
+                    color: sortBy === o.value ? 'var(--orange)' : 'var(--text-2)',
+                  }}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Cuisine chips */}
