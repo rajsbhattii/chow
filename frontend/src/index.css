@@ -120,6 +120,26 @@ button, a { touch-action: manipulation; }
   .mobile-bottom-nav a.active {
     color: var(--orange);
   }
+
+  /* Profile page: stack stats/badges/DNA grids instead of squeezing them */
+  .profile-stats-row {
+    flex-direction: column !important;
+  }
+  .profile-visits-card {
+    width: 100% !important;
+  }
+  .profile-stat-grid {
+    width: 100%;
+  }
+  .profile-badges-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .profile-dna-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .profile-dna-row > :last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .card {

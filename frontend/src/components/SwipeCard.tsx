@@ -4,6 +4,8 @@ import { useRef, useState } from 'react'
 import type { RestaurantDetail } from '../data/restaurants'
 import RestaurantModal from './RestaurantModal'
 
+const TAP_DRAG_SLOP = 8
+
 const SWIPE_THRESHOLD = 80
 
 interface Props {
@@ -20,6 +22,42 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
   const [gone, setGone] = useState<'left' | 'right' | null>(null)
   const [showModal, setShowModal] = useState(false)
   const ref = useRef(null)
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const dragStartedRef = useRef(false)
+  const ignoreClickRef = useRef(false)
+
+  function handleCardPressStart(e: React.PointerEvent<HTMLDivElement>) {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY }
+    dragStartedRef.current = false
+    ignoreClickRef.current = false
+  }
+
+  function handleCardPressMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!pointerStartRef.current) return
+    const dx = Math.abs(e.clientX - pointerStartRef.current.x)
+    const dy = Math.abs(e.clientY - pointerStartRef.current.y)
+    if (dx > TAP_DRAG_SLOP || dy > TAP_DRAG_SLOP) {
+      dragStartedRef.current = true
+      ignoreClickRef.current = true
+    }
+  }
+
+  function handleCardTapOpen() {
+    if (dragStartedRef.current || ignoreClickRef.current) {
+      ignoreClickRef.current = false
+      dragStartedRef.current = false
+      return
+    }
+    setShowModal(true)
+  }
+
+  function handleCardPressEnd() {
+    pointerStartRef.current = null
+    if (dragStartedRef.current) {
+      ignoreClickRef.current = true
+    }
+    dragStartedRef.current = false
+  }
 
   function flyOut(dir: 'left' | 'right' | 'maybe' | 'bookmark') {
     if (dir === 'maybe') {
@@ -40,7 +78,19 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
 
   return (
     <>
-      <div ref={ref} style={{ position: 'relative', userSelect: 'none' }}>
+      <div
+        ref={ref}
+        style={{
+          position: 'relative',
+          userSelect: 'none',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          borderRadius: 20,
+          touchAction: 'pan-y',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+        }}
+      >
         {gone ? (
           <div style={{
             height: 466, borderRadius: 20,
@@ -70,11 +120,17 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
               x, rotate, cursor: 'grab', borderRadius: 20, overflow: 'hidden',
               background: 'var(--surface)',
               boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+              maxWidth: '100%',
+              touchAction: 'pan-y',
             }}
             drag="x"
             dragConstraints={ref}
             dragElastic={0.15}
+            onDragStart={() => {
+              dragStartedRef.current = true
+            }}
             onDragEnd={(_, info) => {
+              dragStartedRef.current = false
               if (info.offset.x > SWIPE_THRESHOLD) flyOut('right')
               else if (info.offset.x < -SWIPE_THRESHOLD) flyOut('left')
               else animate(x, 0, { type: 'spring', stiffness: 350, damping: 25 })
@@ -82,7 +138,15 @@ export default function SwipeCard({ restaurant, onSwipe }: Props) {
             whileDrag={{ cursor: 'grabbing' }}
           >
             {/* Image section — tap here to open modal */}
-            <div style={{ position: 'relative' }} onClick={() => setShowModal(true)}>
+            <div
+              style={{ position: 'relative', maxWidth: '100%', overflow: 'hidden' }}
+              onPointerDown={handleCardPressStart}
+              onPointerMove={handleCardPressMove}
+              onPointerUp={handleCardPressEnd}
+              onPointerLeave={handleCardPressEnd}
+              onPointerCancel={handleCardPressEnd}
+              onClick={handleCardTapOpen}
+            >
               {restaurant.imageUrl ? (
                 <img
                   src={restaurant.imageUrl}

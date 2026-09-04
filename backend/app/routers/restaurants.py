@@ -108,6 +108,25 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def _dedupe_fast_food(pairs: list[tuple[Restaurant, float]]) -> list[tuple[Restaurant, float]]:
+    """Collapse same-brand fast-food locations to the single nearest one.
+
+    Non-fast-food restaurants (no "fast_food_restaurant" in place_types) pass through
+    untouched — this only affects chains you'd go to "whichever is closest," not
+    sit-down restaurants where the specific location matters.
+    """
+    nearest_by_name: dict[str, tuple[Restaurant, float]] = {}
+    others: list[tuple[Restaurant, float]] = []
+    for r, d in pairs:
+        if r.place_types and "fast_food_restaurant" in r.place_types:
+            key = r.name.strip().lower()
+            if key not in nearest_by_name or d < nearest_by_name[key][1]:
+                nearest_by_name[key] = (r, d)
+        else:
+            others.append((r, d))
+    return others + list(nearest_by_name.values())
+
+
 def _serialize(r: Restaurant, lat: float, lng: float) -> dict:
     dist_km = _haversine_km(lat, lng, float(r.latitude or 0), float(r.longitude or 0))
     walk_min = round(dist_km / 0.083)  # ~5 km/h
@@ -328,6 +347,7 @@ async def list_restaurants(
         if r.latitude and r.longitude
     ]
     with_distance = [(r, d) for r, d in with_distance if d <= max_distance_km]
+    with_distance = _dedupe_fast_food(with_distance)
 
     if sort == "trending":
         with_distance.sort(key=lambda x: (x[0].review_count or 0), reverse=True)
@@ -419,6 +439,7 @@ async def random_restaurant(
         if r.latitude and r.longitude
     ]
     candidates = [(r, d) for r, d in candidates if d <= max_distance_km]
+    candidates = _dedupe_fast_food(candidates)
 
     if not candidates:
         from fastapi import HTTPException

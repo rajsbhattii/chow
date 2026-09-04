@@ -265,9 +265,9 @@ export default function Profile() {
             })}
           </div>
 
-        <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+        <div className="profile-stats-row" style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
           {/* Big visits card */}
-          <div style={{
+          <div className="profile-visits-card" style={{
             background: 'var(--surface-inverse)', borderRadius: 16, padding: '32px 28px',
             color: '#fff', width: 220, flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -295,7 +295,7 @@ export default function Profile() {
           </div>
 
           {/* Stat grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, flex: 1 }}>
+          <div className="profile-stat-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, flex: 1 }}>
             {[
               { label: 'Total swipes',       value: stats?.swipes          ?? '—' },
               { label: 'Restaurants saved',  value: stats?.saves            ?? '—' },
@@ -321,7 +321,7 @@ export default function Profile() {
       )}
 
       {tab === 'Badges' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <div className="profile-badges-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           {BADGES.map(({ key, label, emoji, desc }) => {
             const earned = earnedBadges.has(key)
             return (
@@ -411,7 +411,7 @@ export default function Profile() {
               </div>
 
               {/* Row: Avg rating (1/4) | Spending (1/4) | Hotspots (1/2) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 16 }}>
+              <div className="profile-dna-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 16 }}>
 
                 {/* Avg rating */}
                 <div className="card" style={{ padding: '22px 20px' }}>
