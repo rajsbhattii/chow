@@ -102,7 +102,7 @@ export default function Login() {
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        <GoogleButton />
+        <GoogleButton onError={setError} />
 
         <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-3)' }}>
           No account?{' '}
